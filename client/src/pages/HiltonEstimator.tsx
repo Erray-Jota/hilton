@@ -71,10 +71,11 @@ export default function HiltonEstimator() {
 
     // Chat & Voice State
     const [chatTranscript, setChatTranscript] = useState("");
+    const [emailAITranscript, setEmailAITranscript] = useState(""); // Separate state for email AI assistant
     const [emailMessage, setEmailMessage] = useState(""); // Add separate state for email message
     const [emailRecipient, setEmailRecipient] = useState(""); // Email recipient address
     const [isListening, setIsListening] = useState(false);
-    const [voiceTarget, setVoiceTarget] = useState<'chat' | 'email'>('chat'); // Track which input is receiving voice
+    const [voiceTarget, setVoiceTarget] = useState<'chat' | 'email' | 'emailAI'>('chat'); // Track which input is receiving voice
 
     // Data Fetching for Scenario 1
     const mutation1 = useMutation({
@@ -130,7 +131,7 @@ export default function HiltonEstimator() {
     }, [scenario2]);
 
 
-    const toggleListening = (target: 'chat' | 'email') => {
+    const toggleListening = (target: 'chat' | 'email' | 'emailAI') => {
         setVoiceTarget(target);
         if (isListening) {
             setIsListening(false);
@@ -163,7 +164,11 @@ export default function HiltonEstimator() {
                 if (interimTranscript) {
                     if (target === 'chat') {
                         setChatTranscript(prev => {
-                            // Remove previous interim, add new interim
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
+                        });
+                    } else if (target === 'emailAI') {
+                        setEmailAITranscript(prev => {
                             const base = prev.split('[...]')[0].trim();
                             return base + (base ? ' ' : '') + interimTranscript + ' [...]';
                         });
@@ -179,6 +184,11 @@ export default function HiltonEstimator() {
                 if (finalTranscript) {
                     if (target === 'chat') {
                         setChatTranscript(prev => {
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + finalTranscript;
+                        });
+                    } else if (target === 'emailAI') {
+                        setEmailAITranscript(prev => {
                             const base = prev.split('[...]')[0].trim();
                             return base + (base ? ' ' : '') + finalTranscript;
                         });
@@ -209,8 +219,9 @@ export default function HiltonEstimator() {
     const parseEmailCommand = (text: string): { recipient: string; message: string } => {
         const lowerText = text.toLowerCase();
 
-        // Extract email address after "to" or "send to"
-        const emailMatch = lowerText.match(/(?:send\s+email\s+to|to)\s+(.+?)(?:\s+with\s+message|\s+saying|$)/i);
+        // Extract email address after "to" - look for pattern with "at" and "dot"
+        const emailPattern = /(?:send\s+(?:an?\s+)?email\s+to|to)\s+([\w\s]+\s+at\s+[\w\s]+\s+dot\s+[\w\s]+?)(?:\s+with\s+message|\s+saying|$)/i;
+        const emailMatch = lowerText.match(emailPattern);
         const recipient = emailMatch ? parseEmailFromSpeech(emailMatch[1].trim()) : '';
 
         // Extract message after "with message" or "saying"
@@ -782,10 +793,10 @@ export default function HiltonEstimator() {
                             <Label className="text-[#003f87] font-semibold mb-2 block text-base">AI Assistant</Label>
                             <div className="relative">
                                 <Textarea
-                                    value={chatTranscript}
+                                    value={emailAITranscript}
                                     onChange={(e) => {
                                         const newValue = e.target.value;
-                                        setChatTranscript(newValue);
+                                        setEmailAITranscript(newValue);
                                         // Parse email command and auto-populate fields
                                         const parsed = parseEmailCommand(newValue);
                                         if (parsed.recipient) setEmailRecipient(parsed.recipient);
@@ -797,8 +808,8 @@ export default function HiltonEstimator() {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className={`absolute top-2 right-2 ${isListening && voiceTarget === 'chat' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
-                                    onClick={() => toggleListening('chat')}
+                                    className={`absolute top-2 right-2 ${isListening && voiceTarget === 'emailAI' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
+                                    onClick={() => toggleListening('emailAI')}
                                 >
                                     <Mic className="h-6 w-6" />
                                 </Button>
