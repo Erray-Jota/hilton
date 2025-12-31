@@ -8,4 +8,6 @@ vite.config.ts.*
 backup/
 attached_assets/*
 !attached_assets/.gitkeep
+!attached_assets/raap-logo-new.png
+!attached_assets/image_*.png
 *.log
