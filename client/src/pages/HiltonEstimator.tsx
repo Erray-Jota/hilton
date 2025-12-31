@@ -190,7 +190,14 @@ export default function HiltonEstimator() {
                     } else if (target === 'emailAI') {
                         setEmailAITranscript(prev => {
                             const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + finalTranscript;
+                            const newTranscript = base + (base ? ' ' : '') + finalTranscript;
+
+                            // Parse email command only on final transcript
+                            const parsed = parseEmailCommand(newTranscript);
+                            if (parsed.recipient) setEmailRecipient(parsed.recipient);
+                            if (parsed.message) setEmailMessage(parsed.message);
+
+                            return newTranscript;
                         });
                     } else {
                         setEmailMessage(prev => {
@@ -794,14 +801,7 @@ export default function HiltonEstimator() {
                             <div className="relative">
                                 <Textarea
                                     value={emailAITranscript}
-                                    onChange={(e) => {
-                                        const newValue = e.target.value;
-                                        setEmailAITranscript(newValue);
-                                        // Parse email command and auto-populate fields
-                                        const parsed = parseEmailCommand(newValue);
-                                        if (parsed.recipient) setEmailRecipient(parsed.recipient);
-                                        if (parsed.message) setEmailMessage(parsed.message);
-                                    }}
+                                    onChange={(e) => setEmailAITranscript(e.target.value)}
                                     placeholder="Tap mic to speak... (e.g., 'send email to rj at raap dot builders with message thank you')"
                                     className="min-h-[100px] text-base p-4 pr-14 bg-white resize-none"
                                 />
