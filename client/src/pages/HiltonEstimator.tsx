@@ -72,6 +72,7 @@ export default function HiltonEstimator() {
     // Chat & Voice State
     const [chatTranscript, setChatTranscript] = useState("");
     const [emailMessage, setEmailMessage] = useState(""); // Add separate state for email message
+    const [emailRecipient, setEmailRecipient] = useState(""); // Email recipient address
     const [isListening, setIsListening] = useState(false);
     const [voiceTarget, setVoiceTarget] = useState<'chat' | 'email'>('chat'); // Track which input is receiving voice
 
@@ -204,6 +205,20 @@ export default function HiltonEstimator() {
             .replace(/\s+/g, ''); // Remove remaining spaces
     };
 
+    // Helper function to parse email commands (e.g., "send email to x at y dot z")
+    const parseEmailCommand = (text: string): { recipient: string; message: string } => {
+        const lowerText = text.toLowerCase();
+
+        // Extract email address after "to" or "send to"
+        const emailMatch = lowerText.match(/(?:send\s+email\s+to|to)\s+(.+?)(?:\s+with\s+message|\s+saying|$)/i);
+        const recipient = emailMatch ? parseEmailFromSpeech(emailMatch[1].trim()) : '';
+
+        // Extract message after "with message" or "saying"
+        const messageMatch = lowerText.match(/(?:with\s+message|saying)\s+(.+)/i);
+        const message = messageMatch ? messageMatch[1].trim() : '';
+
+        return { recipient, message };
+    };
 
     // Chat State
     const [chatData, setChatData] = useState({
@@ -762,32 +777,84 @@ export default function HiltonEstimator() {
                         <h1 className="text-xl font-bold text-[#003f87]">Email Estimate</h1>
                     </header>
                     <main className="p-4 space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-lg">Email Address</Label>
-                            <Input id="email" placeholder="name@company.com" type="email" className="h-12 text-lg" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="message" className="text-lg">Message (Optional)</Label>
+                        {/* AI Assistant Box */}
+                        <div className="relative bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <Label className="text-[#003f87] font-semibold mb-2 block text-base">AI Assistant</Label>
                             <div className="relative">
                                 <Textarea
-                                    id="message"
-                                    placeholder="Project details..."
-                                    className="min-h-[150px] text-lg p-4 pr-12"
-                                    value={emailMessage}
-                                    onChange={(e) => setEmailMessage(e.target.value)}
+                                    value={chatTranscript}
+                                    onChange={(e) => {
+                                        const newValue = e.target.value;
+                                        setChatTranscript(newValue);
+                                        // Parse email command and auto-populate fields
+                                        const parsed = parseEmailCommand(newValue);
+                                        if (parsed.recipient) setEmailRecipient(parsed.recipient);
+                                        if (parsed.message) setEmailMessage(parsed.message);
+                                    }}
+                                    placeholder="Tap mic to speak... (e.g., 'send email to rj at raap dot builders with message thank you')"
+                                    className="min-h-[100px] text-base p-4 pr-14 bg-white resize-none"
                                 />
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className={`absolute top-2 right-2 ${isListening && voiceTarget === 'email' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
-                                    onClick={() => toggleListening('email')}
+                                    className={`absolute top-2 right-2 ${isListening && voiceTarget === 'chat' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
+                                    onClick={() => toggleListening('chat')}
                                 >
                                     <Mic className="h-6 w-6" />
                                 </Button>
                             </div>
                         </div>
-                        <Button onClick={() => { generatePDF(); setActiveView('estimator'); }} className="w-full bg-[#003f87] h-14 text-lg font-semibold">
-                            <Send className="mr-2 h-5 w-5" /> Send PDF
+
+                        {/* Email Address Field */}
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-lg">Email Address</Label>
+                            <Input
+                                id="email"
+                                placeholder="name@company.com"
+                                type="email"
+                                className="h-12 text-lg"
+                                value={emailRecipient}
+                                onChange={(e) => setEmailRecipient(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Message Field */}
+                        <div className="space-y-2">
+                            <Label htmlFor="message" className="text-lg">Message (Optional)</Label>
+                            <Textarea
+                                id="message"
+                                placeholder="Project details..."
+                                className="min-h-[150px] text-lg p-4"
+                                value={emailMessage}
+                                onChange={(e) => setEmailMessage(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Send Email Button */}
+                        <Button
+                            onClick={() => {
+                                if (!emailRecipient) {
+                                    alert('Please enter an email address');
+                                    return;
+                                }
+
+                                // Generate PDF and prepare email
+                                const subject = `Hilton Cost Estimate - ${scenario1.brand}`;
+                                const body = emailMessage || `Please find attached the cost estimate for ${scenario1.rooms} rooms at ${scenario1.location || 'your location'}.`;
+
+                                // Use mailto: for now (can be replaced with API call)
+                                const mailtoLink = `mailto:${emailRecipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                                window.location.href = mailtoLink;
+
+                                // Generate PDF
+                                generatePDF();
+
+                                // Return to estimator
+                                setTimeout(() => setActiveView('estimator'), 1000);
+                            }}
+                            className="w-full bg-[#003f87] h-14 text-lg font-semibold"
+                        >
+                            <Send className="mr-2 h-5 w-5" /> Send Email
                         </Button>
                     </main>
                 </div>
