@@ -128,6 +128,7 @@ export default function HiltonEstimator() {
         return () => clearTimeout(timer);
     }, [scenario2]);
 
+
     const toggleListening = (target: 'chat' | 'email') => {
         setVoiceTarget(target);
         if (isListening) {
@@ -139,17 +140,53 @@ export default function HiltonEstimator() {
             const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
-            recognition.interimResults = false;
+            recognition.interimResults = true; // Enable real-time transcription
             recognition.lang = 'en-US';
 
             recognition.onstart = () => setIsListening(true);
             recognition.onend = () => setIsListening(false);
             recognition.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                if (target === 'chat') {
-                    setChatTranscript(prev => prev + (prev ? " " : "") + transcript);
-                } else {
-                    setEmailMessage(prev => prev + (prev ? " " : "") + transcript);
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = 0; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                // Update with interim results for real-time display
+                if (interimTranscript) {
+                    if (target === 'chat') {
+                        setChatTranscript(prev => {
+                            // Remove previous interim, add new interim
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
+                        });
+                    } else {
+                        setEmailMessage(prev => {
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
+                        });
+                    }
+                }
+
+                // Update with final results
+                if (finalTranscript) {
+                    if (target === 'chat') {
+                        setChatTranscript(prev => {
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + finalTranscript;
+                        });
+                    } else {
+                        setEmailMessage(prev => {
+                            const base = prev.split('[...]')[0].trim();
+                            return base + (base ? ' ' : '') + finalTranscript;
+                        });
+                    }
                 }
             };
             recognition.start();
@@ -157,6 +194,16 @@ export default function HiltonEstimator() {
             alert("Speech recognition not supported in this browser.");
         }
     };
+
+    // Helper function to parse email addresses from speech
+    const parseEmailFromSpeech = (text: string): string => {
+        return text
+            .toLowerCase()
+            .replace(/\s+at\s+/g, '@')
+            .replace(/\s+dot\s+/g, '.')
+            .replace(/\s+/g, ''); // Remove remaining spaces
+    };
+
 
     // Chat State
     const [chatData, setChatData] = useState({
@@ -533,7 +580,64 @@ export default function HiltonEstimator() {
                             value={chatData.rooms}
                             onChange={(e) => setChatData({ ...chatData, rooms: e.target.value })}
                             className="h-8 text-xs"
+                            placeholder="65"
                         />
+                    </div>
+                </div>
+
+                {/* Email Composition Section */}
+                <div className="relative bg-gray-50 p-2 rounded-lg border border-gray-100 mt-2">
+                    <Label className="text-[#003f87] font-semibold mb-1 block text-xs">Email Composition</Label>
+
+                    <div className="space-y-2">
+                        <div>
+                            <Label className="text-[10px] uppercase text-gray-400">To (say "at" for @, "dot" for .)</Label>
+                            <div className="relative">
+                                <Input
+                                    value={parseEmailFromSpeech(emailMessage.split('\n')[0] || '')}
+                                    onChange={(e) => {
+                                        const lines = emailMessage.split('\n');
+                                        lines[0] = e.target.value;
+                                        setEmailMessage(lines.join('\n'));
+                                    }}
+                                    className="h-8 text-xs pr-10"
+                                    placeholder="e.g., rj@raap.builders"
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`absolute bottom-0 right-0 h-8 w-8 ${isListening && voiceTarget === 'email' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
+                                    onClick={() => toggleListening('email')}
+                                >
+                                    <Mic className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-[10px] uppercase text-gray-400">Message</Label>
+                            <Textarea
+                                value={emailMessage.split('\n').slice(1).join('\n')}
+                                onChange={(e) => {
+                                    const firstLine = emailMessage.split('\n')[0] || '';
+                                    setEmailMessage(firstLine + '\n' + e.target.value);
+                                }}
+                                placeholder="Thank you message will be generated here..."
+                                className="h-20 text-xs resize-none"
+                            />
+                        </div>
+
+                        <Button
+                            onClick={() => {
+                                const email = parseEmailFromSpeech(emailMessage.split('\n')[0] || '');
+                                const message = emailMessage.split('\n').slice(1).join('\n') ||
+                                    `Thank you for your interest in our Hilton Cost Estimator. Please find the attached estimate for your review.`;
+                                alert(`Email would be sent to: ${email}\n\nMessage:\n${message}`);
+                            }}
+                            className="w-full bg-[#f0ab00] hover:bg-[#d49600] h-8 text-xs"
+                        >
+                            Send Email
+                        </Button>
                     </div>
                 </div>
             </div>
