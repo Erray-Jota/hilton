@@ -1,0 +1,1880 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRoute, useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import Header from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  ArrowLeft, 
+  ArrowRight,
+  MapPin, 
+  FileText,
+  Building,
+  CheckCircle,
+  Circle,
+  Users,
+  DollarSign,
+  AlertCircle,
+  Upload,
+  Download,
+  Mail,
+  Phone,
+  Eye,
+  Edit3,
+  Save,
+  MessageSquare,
+  Calculator,
+  Handshake
+} from "lucide-react";
+import type { Project } from "@shared/schema";
+import { useSimulator } from "@/hooks/useSimulator";
+// Removed isSampleProject import - using database field directly
+
+// Import visual assets for Design tab
+import vallejoFloorPlanImage from "@assets/Vallejo Floor Plan 2_1757773129441.png";
+import vallejoBuildingRenderingImage from "@assets/Vallejo Building 2_1757773134770.png";
+import serenityFloorPlanImage from "@assets/Mutual Floor Plan_1757790327649.png";
+import serenityBuildingRenderingImage from "@assets/Mutual Building 3_1757790327650.png";
+import sitePlanImage from "@assets/Vallejo Site 2_1757773140827.png";
+import unitPlansImage from "@assets/generated_images/apartment_unit_floor_plans_5298881c.png";
+import oneBedImage from "@assets/1 Bed_1754836945408.png";
+import twoBedImage from "@assets/2 Bed_1754837154542.png";
+import threeBedImage from "@assets/3 Bed_1754837154543.png";
+
+// Import generated building renderings
+import exteriorRenderingImage from "@assets/generated_images/Modern_apartment_building_exterior_006bc1c6.png";
+import courtyardRenderingImage from "@assets/generated_images/Building_courtyard_view_rendering_1a349f38.png";
+import twilightRenderingImage from "@assets/generated_images/Building_twilight_exterior_rendering_cbe0db35.png";
+
+export default function SmartStart() {
+  const [, params] = useRoute("/projects/:id/smart-start");
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const projectId = params?.id;
+  const [activeTab, setActiveTab] = useState("overview");
+  const [editMode, setEditMode] = useState<string | null>(null);
+  const simulator = useSimulator();
+
+  const { data: project, isLoading, error } = useQuery<Project>({
+    queryKey: ["/api/projects", projectId],
+    enabled: !!projectId,
+  });
+
+  // Get conditional images based on project type
+  const floorPlanImage = project && project.isSample 
+    ? serenityFloorPlanImage 
+    : vallejoFloorPlanImage;
+  
+  const buildingRenderingImage = project && project.isSample 
+    ? serenityBuildingRenderingImage 
+    : vallejoBuildingRenderingImage;
+
+  // Handle authentication errors
+  if (error && isUnauthorizedError(error)) {
+    toast({
+      title: "Unauthorized",
+      description: "You are logged out. Logging in again...",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      window.location.href = "/api/login";
+    }, 500);
+  }
+
+  const updateProject = useMutation({
+    mutationFn: async (updates: Partial<Project>) => {
+      const response = await apiRequest("PATCH", `/api/projects/${projectId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      setEditMode(null);
+      toast({
+        title: "Updates Saved",
+        description: "Project information has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+      }
+    },
+  });
+
+  const markAsComplete = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/projects/${projectId}`, {
+        smartStartComplete: true
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      toast({
+        title: "SmartStart Complete",
+        description: "Your conceptual design and refined cost package is complete. You can now proceed to FabAssure.",
+      });
+      navigate(`/projects/${projectId}/workflow`);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+      }
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse space-y-8">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-64 bg-gray-200 rounded-lg"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Project not found</h2>
+            <Button onClick={() => navigate("/")} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Check if user can access this application
+  if (!project.modularFeasibilityComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-orange-500" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Complete ModularFeasibility First</h2>
+            <p className="text-gray-600 mb-4">
+              You need to complete the ModularFeasibility assessment before accessing SmartStart.
+            </p>
+            <Button onClick={() => navigate(`/projects/${projectId}/workflow`)} className="mr-2">
+              Back to Workflow
+            </Button>
+            <Button 
+              onClick={() => navigate(`/projects/${projectId}/modular-feasibility`)}
+              className="bg-raap-green hover:bg-green-700"
+            >
+              Complete ModularFeasibility
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Calculate progress based on completed tasks
+  const completedTasks = [
+    project.buildingLayoutComplete,
+    project.unitDesignsComplete,
+    project.buildingRenderingsComplete,
+    project.designHandoffComplete,
+    project.pricingValidationComplete,
+    project.costFinalizationComplete,
+  ].filter(Boolean).length;
+  const totalTasks = 6;
+  const progressPercentage = (completedTasks / totalTasks) * 100;
+
+  const getStatusBadge = (status: string | null) => {
+    if (!status) return <Badge variant="secondary">Not Started</Badge>;
+    switch (status) {
+      case "draft": return <Badge variant="secondary">Draft</Badge>;
+      case "review": return <Badge variant="outline">In Review</Badge>;
+      case "approved": return <Badge className="bg-green-500 text-white">Approved</Badge>;
+      case "pending": return <Badge variant="secondary">Pending</Badge>;
+      case "negotiating": return <Badge variant="outline">Negotiating</Badge>;
+      case "finalized": return <Badge className="bg-green-500 text-white">Finalized</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/projects/${projectId}/workflow`)}
+              className="text-raap-green hover:text-green-700 mb-4 p-0"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Workflow
+            </Button>
+            <h1 className="text-3xl font-bold text-raap-dark mb-2">SmartStart Application</h1>
+            <h2 className="text-xl text-gray-700 mb-2">{project.name}</h2>
+            <div className="flex items-center text-gray-600 mb-2">
+              <MapPin className="h-4 w-4 mr-1" />
+              {project.address}
+            </div>
+            <p className="text-gray-600">
+              Conceptual design, AOR collaboration, and refined costs with fabricators and GCs
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-green-600">{completedTasks}/{totalTasks}</div>
+            <div className="text-sm text-gray-500 mb-2">Components Complete</div>
+            <div className="w-32 mb-4">
+              <Progress value={progressPercentage} className="h-2" />
+            </div>
+            {project.smartStartComplete && (
+              <Badge className="bg-green-500 text-white">
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Interface */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="overflow-x-auto mb-8">
+            <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground min-w-full md:w-full">
+              <TabsTrigger 
+                value="overview" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <FileText className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">Overview</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="design" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <Building className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">Design</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="aor" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <Users className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">AOR</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pricing" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <Calculator className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">Cost</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="simulator" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <Calculator className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">Simulator</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="costs" 
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-w-[80px] md:min-w-0 md:flex-1"
+              >
+                <Handshake className="h-4 w-4 mr-1" />
+                <span className="text-[11px] md:text-sm">Bids</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span>SmartStart Overview</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border border-green-200">
+                    <h3 className="text-xl font-bold text-green-800 mb-2">Conceptual Design & Refined Costs</h3>
+                    <p className="text-sm text-gray-700 mb-4">
+                      SmartStart develops comprehensive conceptual designs for your building, coordinates with architect of record for entitlement packages, and validates refined costs with multiple fabricators and general contractors.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-white rounded-lg p-4 border">
+                        <h4 className="font-semibold text-blue-700 mb-2">Design Package</h4>
+                        <p className="text-sm text-gray-700">Building layouts, unit designs, and 3D renderings</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 border">
+                        <h4 className="font-semibold text-green-700 mb-2">AOR Collaboration</h4>
+                        <p className="text-sm text-gray-700">Design handoff and entitlement package development</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 border">
+                        <h4 className="font-semibold text-orange-700 mb-2">Cost Package</h4>
+                        <p className="text-sm text-gray-700">Validated costs from multiple fabricators and GCs</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 border">
+                        <h4 className="font-semibold text-purple-700 mb-2">Cost Collaboration</h4>
+                        <p className="text-sm text-gray-700">Finalize costs with selected partners</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Design & Collaboration Progress</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.buildingLayoutComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Building Layout</span>
+                          </div>
+                          <Badge variant={project.buildingLayoutComplete ? "default" : "secondary"}>
+                            {project.buildingLayoutComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.unitDesignsComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Unit Designs</span>
+                          </div>
+                          <Badge variant={project.unitDesignsComplete ? "default" : "secondary"}>
+                            {project.unitDesignsComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.buildingRenderingsComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Building Renderings</span>
+                          </div>
+                          <Badge variant={project.buildingRenderingsComplete ? "default" : "secondary"}>
+                            {project.buildingRenderingsComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.designHandoffComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">AOR Design Handoff</span>
+                          </div>
+                          <Badge variant={project.designHandoffComplete ? "default" : "secondary"}>
+                            {project.designHandoffComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Cost Progress</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.pricingValidationComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Cost Validation</span>
+                          </div>
+                          <Badge variant={project.pricingValidationComplete ? "default" : "secondary"}>
+                            {project.pricingValidationComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.refinedCostingComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Refined Costing</span>
+                          </div>
+                          <Badge variant={project.refinedCostingComplete ? "default" : "secondary"}>
+                            {project.refinedCostingComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {project.costFinalizationComplete ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className="text-sm">Cost Finalization</span>
+                          </div>
+                          <Badge variant={project.costFinalizationComplete ? "default" : "secondary"}>
+                            {project.costFinalizationComplete ? "Complete" : "Pending"}
+                          </Badge>
+                        </div>
+                        <div className="text-center pt-4 border-t">
+                          <div className="text-sm text-gray-600">Selected Partners</div>
+                          {project.finalSelectedFabricator && (
+                            <div className="text-sm font-medium">Fab: {project.finalSelectedFabricator}</div>
+                          )}
+                          {project.finalSelectedGc && (
+                            <div className="text-sm font-medium">GC: {project.finalSelectedGc}</div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Design Package Tab */}
+          <TabsContent value="design">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Building className="h-5 w-5" />
+                      <span>Design Package</span>
+                    </div>
+                    {getStatusBadge(project.designPackageStatus)}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Design Package Overview */}
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-blue-800">Design Package Status</h3>
+                        <div className="text-3xl font-bold text-blue-600">5/5</div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">
+                        <strong>Complete Design Package:</strong> 24-unit modular building with contemporary architecture, 
+                        optimized for efficient construction and premium finishes. All design components approved.
+                      </p>
+                      <div className="text-xs text-blue-600 font-medium">
+                        Ready for AOR collaboration and entitlement package development
+                      </div>
+                    </div>
+
+                    {/* Design Sub-Tabs */}
+                    <Tabs defaultValue="specifications" className="w-full">
+                      <TabsList className="grid grid-cols-5 w-full mb-6">
+                        <TabsTrigger value="specifications">Specifications</TabsTrigger>
+                        <TabsTrigger value="unit-plans">Unit Plans</TabsTrigger>
+                        <TabsTrigger value="floor-plan">Floor Plan</TabsTrigger>
+                        <TabsTrigger value="3d-view">3D View</TabsTrigger>
+                        <TabsTrigger value="renderings">Renderings</TabsTrigger>
+                      </TabsList>
+
+                      {/* Specifications Sub-Tab */}
+                      <TabsContent value="specifications">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Unit Mix Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="bg-blue-50 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-blue-600">6</div>
+                                  <div className="text-sm font-medium text-blue-700">1-Bedroom</div>
+                                  <div className="text-xs text-gray-600">650 sq ft avg</div>
+                                </div>
+                                <div className="bg-green-50 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-green-600">12</div>
+                                  <div className="text-sm font-medium text-green-700">2-Bedroom</div>
+                                  <div className="text-xs text-gray-600">850 sq ft avg</div>
+                                </div>
+                                <div className="bg-purple-50 rounded-lg p-4">
+                                  <div className="text-3xl font-bold text-purple-600">6</div>
+                                  <div className="text-sm font-medium text-purple-700">3-Bedroom</div>
+                                  <div className="text-xs text-gray-600">1,100 sq ft avg</div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Building Specifications</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Total Units</span>
+                                <span className="text-sm">24 Units</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Building Type</span>
+                                <span className="text-sm">4-Story Podium</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Construction Type</span>
+                                <span className="text-sm">Type V-A</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Total Area</span>
+                                <span className="text-sm">19,008 sq ft</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Parking Spaces</span>
+                                <span className="text-sm">32 Spaces</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm font-medium">Amenity Space</span>
+                                <span className="text-sm">1,200 sq ft</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        <Card className="mt-6">
+                          <CardHeader>
+                            <CardTitle className="text-lg">Modular Specifications</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-blue-700">Module Dimensions</div>
+                                <div className="text-sm text-gray-600">14' x 60' Standard<br />12' x 48' Compact</div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-green-700">Structural System</div>
+                                <div className="text-sm text-gray-600">Light Gauge Steel Frame<br />Welded Connections</div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-orange-700">Exterior Cladding</div>
+                                <div className="text-sm text-gray-600">Fiber Cement Panels<br />Metal Accent Elements</div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-purple-700">Interior Finishes</div>
+                                <div className="text-sm text-gray-600">Luxury Vinyl Plank<br />Quartz Countertops</div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {/* Unit Plans Sub-Tab */}
+                      <TabsContent value="unit-plans">
+                        <div className="space-y-6">
+                          {/* Unit Plans Overview */}
+                          <div className="text-center">
+                            <img 
+                              src={unitPlansImage} 
+                              alt="Comprehensive apartment unit floor plans layout"
+                              className="w-full h-auto border rounded-lg shadow-lg object-contain bg-white mb-4"
+                              style={{ maxHeight: '70vh' }}
+                            />
+                            <h5 className="font-semibold text-gray-800 mb-2">Unit Plans Overview</h5>
+                            <p className="text-sm text-gray-600">Complete floor plan layouts for all unit types</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">1-Bedroom Unit (650 sf)</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="text-center mb-4">
+                                  <img 
+                                    src={oneBedImage} 
+                                    alt="1-bedroom unit floor plan"
+                                    className="w-full h-auto border rounded-lg shadow object-contain bg-white"
+                                    style={{ maxHeight: '300px' }}
+                                  />
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <div><strong>Layout:</strong> Open concept living/kitchen</div>
+                                  <div><strong>Bedroom:</strong> 12' x 11' with walk-in closet</div>
+                                  <div><strong>Kitchen:</strong> Galley style with island</div>
+                                  <div><strong>Bathroom:</strong> Full bath with tub/shower</div>
+                                  <div><strong>Features:</strong> In-unit laundry, private balcony</div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">2-Bedroom Unit (850 sf)</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="text-center mb-4">
+                                  <img 
+                                    src={twoBedImage} 
+                                    alt="2-bedroom unit floor plan"
+                                    className="w-full h-auto border rounded-lg shadow object-contain bg-white"
+                                    style={{ maxHeight: '300px' }}
+                                  />
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <div><strong>Layout:</strong> Split bedroom design</div>
+                                  <div><strong>Master:</strong> 13' x 12' with en-suite bath</div>
+                                  <div><strong>Second BR:</strong> 11' x 10' with closet</div>
+                                  <div><strong>Kitchen:</strong> L-shaped with peninsula</div>
+                                  <div><strong>Features:</strong> 2 full baths, large balcony</div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">3-Bedroom Unit (1,100 sf)</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="text-center mb-4">
+                                  <img 
+                                    src={threeBedImage} 
+                                    alt="3-bedroom unit floor plan"
+                                    className="w-full h-auto border rounded-lg shadow object-contain bg-white"
+                                    style={{ maxHeight: '300px' }}
+                                  />
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <div><strong>Layout:</strong> Family-oriented design</div>
+                                  <div><strong>Master:</strong> 14' x 13' with walk-in closet</div>
+                                  <div><strong>Bedrooms:</strong> 11' x 10' and 10' x 10'</div>
+                                  <div><strong>Kitchen:</strong> U-shaped with breakfast bar</div>
+                                  <div><strong>Features:</strong> 2.5 baths, utility room</div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Floor Plan Sub-Tab */}
+                      <TabsContent value="floor-plan">
+                        <div className="space-y-6">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Building Floor Plans</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-center mb-6">
+                                <img 
+                                  src={floorPlanImage} 
+                                  alt="Building floor plan layout showing unit arrangement and common areas"
+                                  className="w-full h-auto border rounded-lg shadow-lg object-contain bg-white mb-4"
+                                  style={{ maxHeight: '70vh' }}
+                                />
+                                <h5 className="font-semibold text-gray-800 mb-2">Complete Building Floor Plan</h5>
+                                <p className="text-sm text-gray-600">Detailed layout showing all units, corridors, and common areas</p>
+                              </div>
+
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div>
+                                  <h4 className="font-semibold mb-3">Ground Floor (Parking + Amenities)</h4>
+                                  <div className="bg-white border rounded-lg p-4">
+                                    <div className="space-y-2 text-sm">
+                                      <div><strong>Parking:</strong> 32 spaces (1.33 per unit)</div>
+                                      <div><strong>Amenities:</strong> Community room, fitness center</div>
+                                      <div><strong>Services:</strong> Mail room, bike storage</div>
+                                      <div><strong>Access:</strong> Secure entry, elevator core</div>
+                                      <div><strong>Total Area:</strong> 8,500 sq ft</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <h4 className="font-semibold mb-3">Typical Floor (6 Units)</h4>
+                                  <div className="bg-white border rounded-lg p-4">
+                                    <div className="space-y-2 text-sm">
+                                      <div><strong>Layout:</strong> Double-loaded corridor</div>
+                                      <div><strong>Circulation:</strong> 6' wide hallways</div>
+                                      <div><strong>Utilities:</strong> Central mechanical rooms</div>
+                                      <div><strong>Emergency:</strong> Two means of egress</div>
+                                      <div><strong>Floor Area:</strong> 4,750 sq ft per floor</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </TabsContent>
+
+                      {/* 3D View Sub-Tab */}
+                      <TabsContent value="3d-view">
+                        <div className="space-y-6">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Building Renderings</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-center mb-6">
+                                <img 
+                                  src={buildingRenderingImage} 
+                                  alt="3D rendering of the modular apartment building"
+                                  className="w-full h-auto border rounded-lg shadow-lg object-contain bg-white mb-4"
+                                  style={{ maxHeight: '70vh' }}
+                                />
+                                <h5 className="font-semibold text-gray-800 mb-2">Exterior Building Rendering</h5>
+                                <p className="text-sm text-gray-600">Three-story modular apartment building with contemporary design</p>
+                              </div>
+
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white border rounded-lg p-4">
+                                  <h4 className="font-semibold mb-3">Design Features</h4>
+                                  <div className="space-y-2 text-sm">
+                                    <div><strong>Architecture:</strong> Contemporary design with clean lines</div>
+                                    <div><strong>Materials:</strong> Mixed exterior materials (siding, brick)</div>
+                                    <div><strong>Colors:</strong> Warm gray with dark trim</div>
+                                    <div><strong>Windows:</strong> Energy-efficient windows</div>
+                                    <div><strong>Parking:</strong> Covered parking at ground level</div>
+                                    <div><strong>Landscaping:</strong> Landscaped common areas</div>
+                                    <div><strong>Features:</strong> Balconies for upper floor units</div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white border rounded-lg p-4">
+                                  <h4 className="font-semibold mb-3">Modular Advantages</h4>
+                                  <div className="space-y-2 text-sm">
+                                    <div><strong>Quality:</strong> Factory-controlled quality</div>
+                                    <div><strong>Consistency:</strong> Consistent material finishes</div>
+                                    <div><strong>Speed:</strong> Reduced on-site construction time</div>
+                                    <div><strong>Performance:</strong> Enhanced structural performance</div>
+                                    <div><strong>Weather:</strong> Better weather protection during build</div>
+                                    <div><strong>Precision:</strong> Improved dimensional accuracy</div>
+                                    <div><strong>Sustainability:</strong> Reduced material waste</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </TabsContent>
+
+                      {/* Renderings Sub-Tab */}
+                      <TabsContent value="renderings">
+                        <div className="space-y-6">
+                          {/* Main Exterior Rendering */}
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Exterior Building Renderings</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-center mb-6">
+                                <img 
+                                  src={exteriorRenderingImage} 
+                                  alt="Modern three-story modular apartment building exterior rendering"
+                                  className="w-full h-auto border rounded-lg shadow-lg object-contain bg-white mb-4"
+                                  style={{ maxHeight: '70vh' }}
+                                />
+                                <h5 className="font-semibold text-gray-800 mb-2">Main Exterior View</h5>
+                                <p className="text-sm text-gray-600">Contemporary modular apartment building with mixed materials and modern design</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Additional Renderings Grid */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Courtyard View</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="text-center">
+                                  <img 
+                                    src={courtyardRenderingImage} 
+                                    alt="Building courtyard view with landscaping and resident amenities"
+                                    className="w-full h-auto border rounded-lg shadow object-contain bg-white mb-4"
+                                    style={{ maxHeight: '400px' }}
+                                  />
+                                  <h6 className="font-semibold text-gray-800 mb-2">Central Courtyard</h6>
+                                  <p className="text-sm text-gray-600">Private outdoor space for residents with landscaping and community areas</p>
+                                </div>
+                                
+                                <div className="mt-4 space-y-2 text-sm">
+                                  <div><strong>Features:</strong> Central courtyard design</div>
+                                  <div><strong>Landscaping:</strong> Professional landscape design</div>
+                                  <div><strong>Privacy:</strong> Screened outdoor spaces</div>
+                                  <div><strong>Community:</strong> Shared resident amenities</div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-lg">Evening View</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="text-center">
+                                  <img 
+                                    src={twilightRenderingImage} 
+                                    alt="Building twilight view with warm interior lighting"
+                                    className="w-full h-auto border rounded-lg shadow object-contain bg-white mb-4"
+                                    style={{ maxHeight: '400px' }}
+                                  />
+                                  <h6 className="font-semibold text-gray-800 mb-2">Twilight Exterior</h6>
+                                  <p className="text-sm text-gray-600">Evening view showcasing warm interior lighting and architectural details</p>
+                                </div>
+                                
+                                <div className="mt-4 space-y-2 text-sm">
+                                  <div><strong>Lighting:</strong> Warm interior ambiance</div>
+                                  <div><strong>Materials:</strong> Mixed exterior finishes</div>
+                                  <div><strong>Windows:</strong> Large energy-efficient openings</div>
+                                  <div><strong>Balconies:</strong> Private outdoor spaces</div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Rendering Details */}
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Design Visualization Details</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="bg-white border rounded-lg p-4">
+                                  <h6 className="font-semibold text-blue-700 mb-3">Architectural Style</h6>
+                                  <div className="space-y-2 text-sm">
+                                    <div>• Contemporary design language</div>
+                                    <div>• Clean lines and geometric forms</div>
+                                    <div>• Mixed material palette</div>
+                                    <div>• Human-scale proportions</div>
+                                  </div>
+                                </div>
+                                
+                                <div className="bg-white border rounded-lg p-4">
+                                  <h6 className="font-semibold text-green-700 mb-3">Material Selection</h6>
+                                  <div className="space-y-2 text-sm">
+                                    <div>• Fiber cement siding panels</div>
+                                    <div>• Brick accent elements</div>
+                                    <div>• Metal trim and detailing</div>
+                                    <div>• High-performance windows</div>
+                                  </div>
+                                </div>
+                                
+                                <div className="bg-white border rounded-lg p-4">
+                                  <h6 className="font-semibold text-orange-700 mb-3">Modular Benefits</h6>
+                                  <div className="space-y-2 text-sm">
+                                    <div>• Factory precision construction</div>
+                                    <div>• Consistent quality finishes</div>
+                                    <div>• Reduced construction timeline</div>
+                                    <div>• Enhanced structural integrity</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-between pt-6 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => updateProject.mutate({ buildingLayoutComplete: !project.buildingLayoutComplete })}
+                      >
+                        {project.buildingLayoutComplete ? "Mark Incomplete" : "Mark Complete"}
+                      </Button>
+                      <div className="space-x-2">
+                        <Button variant="outline">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Package
+                        </Button>
+                        <Button>
+                          <Edit3 className="h-4 w-4 mr-2" />
+                          Request Changes
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* AOR Collaboration Tab */}
+          <TabsContent value="aor">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="h-5 w-5" />
+                    <span>Architect of Record (AOR) Collaboration</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* AOR Partner Information */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center justify-between">
+                          AOR Partner
+                          {editMode === "aor" ? (
+                            <Button size="sm" onClick={() => setEditMode(null)}>
+                              <Save className="h-4 w-4 mr-2" />
+                              Save
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => setEditMode("aor")}>
+                              <Edit3 className="h-4 w-4 mr-2" />
+                              Edit
+                            </Button>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {editMode === "aor" ? (
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="aorPartner">Firm Name</Label>
+                              <Input
+                                id="aorPartner"
+                                defaultValue={project.aorPartner || ""}
+                                onBlur={(e) => updateProject.mutate({ aorPartner: e.target.value })}
+                                placeholder="Enter AOR firm name"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="aorContact">Contact Information</Label>
+                              <Textarea
+                                id="aorContact"
+                                defaultValue={project.aorContactInfo || ""}
+                                onBlur={(e) => updateProject.mutate({ aorContactInfo: e.target.value })}
+                                placeholder="Contact details (JSON format)"
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div>
+                              <div className="text-sm font-medium">Firm Name</div>
+                              <div className="text-sm text-gray-600">{project.aorPartner || "Not specified"}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">Contact Information</div>
+                              <div className="text-sm text-gray-600">{project.aorContactInfo || "Not specified"}</div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex space-x-2">
+                          <Button size="sm" variant="outline">
+                            <Mail className="h-4 w-4 mr-2" />
+                            Email AOR
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <Phone className="h-4 w-4 mr-2" />
+                            Call AOR
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Design Handoff Status */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Design Handoff & Entitlement Package</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                              {project.designHandoffComplete ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-gray-400" />
+                              )}
+                              <span className="text-sm">Design Handoff</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {getStatusBadge(project.aorReviewStatus)}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProject.mutate({ designHandoffComplete: !project.designHandoffComplete })}
+                              >
+                                {project.designHandoffComplete ? "Mark Incomplete" : "Mark Complete"}
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>AOR Review Status</Label>
+                            <Select
+                              value={project.aorReviewStatus || ""}
+                              onValueChange={(value) => updateProject.mutate({ aorReviewStatus: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select review status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="reviewing">Reviewing</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="revisions_requested">Revisions Requested</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Entitlement Package Status</Label>
+                            <Select
+                              value={project.entitlementPackageStatus || ""}
+                              onValueChange={(value) => updateProject.mutate({ entitlementPackageStatus: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select package status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="planning">Planning</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="submitted">Submitted</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* AOR Feedback Section */}
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center space-x-2">
+                        <MessageSquare className="h-5 w-5" />
+                        <span>AOR Feedback & Communication</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="aorFeedback">AOR Feedback</Label>
+                          <Textarea
+                            id="aorFeedback"
+                            defaultValue={project.aorFeedback || ""}
+                            onBlur={(e) => updateProject.mutate({ aorFeedback: e.target.value })}
+                            placeholder="Record feedback from AOR reviews and meetings"
+                            rows={4}
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <Button variant="outline">
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Design Package
+                          </Button>
+                          <Button>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send to AOR
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Cost Package Tab */}
+          <TabsContent value="pricing">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <DollarSign className="h-5 w-5" />
+                  <span>Cost Analysis</span>
+                  <Badge variant="outline" className="ml-auto bg-green-100 text-green-700 border-green-300">
+                    Score: {(project as any)?.costScore || "4.5"}/5.0
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Score & Summary */}
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-green-800">Cost Assessment</h3>
+                      <div className="text-3xl font-bold text-green-600">{(project as any)?.costScore || "4.5"}/5</div>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-2">
+                      <strong>Score of {(project as any)?.costScore || "4.5"}/5:</strong> ${(parseFloat((project as any)?.modularTotalCost || '0') / 1000000).toFixed(1)}M (${(project as any)?.modularCostPerSf || '0'}/sf; ${(project as any)?.modularCostPerUnit || '0'}/unit) with Prevailing Wage. 
+                      {(project as any)?.costSavingsPercent || '0'}% savings over site-built. Modular construction provides cost advantages.
+                    </p>
+                    <div className="text-xs text-green-600 font-medium">
+                      Weight: 20% of overall feasibility score
+                    </div>
+                  </div>
+
+                  {/* Detailed MasterFormat Cost Breakdown */}
+                  <div>
+                    <h4 className="font-semibold text-raap-dark mb-4">Detailed MasterFormat Cost Breakdown</h4>
+                    <div className="bg-white border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-700 text-white">
+                          <tr>
+                            <th className="px-3 py-3 text-left font-semibold">MasterFormat Division</th>
+                            <th className="px-3 py-3 text-right font-semibold">Site Built Total</th>
+                            <th className="px-3 py-3 text-right font-semibold">Site Built $/sf</th>
+                            <th className="px-3 py-3 text-right font-semibold">RaaP GC</th>
+                            <th className="px-3 py-3 text-right font-semibold">RaaP Fab</th>
+                            <th className="px-3 py-3 text-right font-semibold">RaaP Total</th>
+                            <th className="px-3 py-3 text-right font-semibold">RaaP $/sf</th>
+                            <th className="px-3 py-3 text-right font-semibold">Savings</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {/* Concrete, Masonry & Metals Section */}
+                          <tr className="bg-blue-50">
+                            <td className="px-3 py-2 font-semibold text-blue-800">Concrete, Masonry & Metals</td>
+                            <td className="px-3 py-2 text-right font-semibold">$1,311,770</td>
+                            <td className="px-3 py-2 text-right">$50</td>
+                            <td className="px-3 py-2 text-right">$1,147,404</td>
+                            <td className="px-3 py-2 text-right">$281,220</td>
+                            <td className="px-3 py-2 text-right font-semibold">$1,428,623</td>
+                            <td className="px-3 py-2 text-right">$54</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-semibold">-$116,853</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">03 Concrete</td>
+                            <td className="px-3 py-2 text-right">$407,021</td>
+                            <td className="px-3 py-2 text-right">$16</td>
+                            <td className="px-3 py-2 text-right">$285,136</td>
+                            <td className="px-3 py-2 text-right">$164,393</td>
+                            <td className="px-3 py-2 text-right">$449,528</td>
+                            <td className="px-3 py-2 text-right">$17</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$42,507</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">04 Masonry</td>
+                            <td className="px-3 py-2 text-right">$233,482</td>
+                            <td className="px-3 py-2 text-right">$9</td>
+                            <td className="px-3 py-2 text-right">$260,237</td>
+                            <td className="px-3 py-2 text-right">-</td>
+                            <td className="px-3 py-2 text-right">$260,237</td>
+                            <td className="px-3 py-2 text-right">$10</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$26,755</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">05 Metal</td>
+                            <td className="px-3 py-2 text-right">$671,267</td>
+                            <td className="px-3 py-2 text-right">$26</td>
+                            <td className="px-3 py-2 text-right">$602,031</td>
+                            <td className="px-3 py-2 text-right">$116,827</td>
+                            <td className="px-3 py-2 text-right">$718,859</td>
+                            <td className="px-3 py-2 text-right">$27</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$47,592</td>
+                          </tr>
+
+                          {/* Rooms Section */}
+                          <tr className="bg-green-50">
+                            <td className="px-3 py-2 font-semibold text-green-800">Rooms</td>
+                            <td className="px-3 py-2 text-right font-semibold">$4,452,553</td>
+                            <td className="px-3 py-2 text-right">$171</td>
+                            <td className="px-3 py-2 text-right">$465,938</td>
+                            <td className="px-3 py-2 text-right">$4,121,807</td>
+                            <td className="px-3 py-2 text-right font-semibold">$4,587,745</td>
+                            <td className="px-3 py-2 text-right">$174</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-semibold">-$135,192</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">06 Wood & Plastics</td>
+                            <td className="px-3 py-2 text-right">$1,982,860</td>
+                            <td className="px-3 py-2 text-right">$76</td>
+                            <td className="px-3 py-2 text-right">$14,171</td>
+                            <td className="px-3 py-2 text-right">$2,137,612</td>
+                            <td className="px-3 py-2 text-right">$2,151,783</td>
+                            <td className="px-3 py-2 text-right">$82</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$168,923</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">07 Thermal & Moisture Protection</td>
+                            <td className="px-3 py-2 text-right">$490,766</td>
+                            <td className="px-3 py-2 text-right">$19</td>
+                            <td className="px-3 py-2 text-right">$289,407</td>
+                            <td className="px-3 py-2 text-right">$293,030</td>
+                            <td className="px-3 py-2 text-right">$582,437</td>
+                            <td className="px-3 py-2 text-right">$22</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$91,671</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">08 Openings</td>
+                            <td className="px-3 py-2 text-right">$486,606</td>
+                            <td className="px-3 py-2 text-right">$19</td>
+                            <td className="px-3 py-2 text-right">$138,123</td>
+                            <td className="px-3 py-2 text-right">$337,164</td>
+                            <td className="px-3 py-2 text-right">$475,287</td>
+                            <td className="px-3 py-2 text-right">$18</td>
+                            <td className="px-3 py-2 text-right text-green-600">$11,319</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">09 Finishes</td>
+                            <td className="px-3 py-2 text-right">$1,492,321</td>
+                            <td className="px-3 py-2 text-right">$57</td>
+                            <td className="px-3 py-2 text-right">$24,237</td>
+                            <td className="px-3 py-2 text-right">$1,354,001</td>
+                            <td className="px-3 py-2 text-right">$1,378,238</td>
+                            <td className="px-3 py-2 text-right">$52</td>
+                            <td className="px-3 py-2 text-right text-green-600">$114,083</td>
+                          </tr>
+
+                          {/* Equipment & Special Construction Section */}
+                          <tr className="bg-orange-50">
+                            <td className="px-3 py-2 font-semibold text-orange-800">Equipment & Special Construction</td>
+                            <td className="px-3 py-2 text-right font-semibold">$221,062</td>
+                            <td className="px-3 py-2 text-right">$9</td>
+                            <td className="px-3 py-2 text-right">$68,827</td>
+                            <td className="px-3 py-2 text-right">$139,859</td>
+                            <td className="px-3 py-2 text-right font-semibold">$208,686</td>
+                            <td className="px-3 py-2 text-right">$8</td>
+                            <td className="px-3 py-2 text-right text-green-600 font-semibold">$12,376</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">10 Specialties</td>
+                            <td className="px-3 py-2 text-right">$55,363</td>
+                            <td className="px-3 py-2 text-right">$2</td>
+                            <td className="px-3 py-2 text-right">-</td>
+                            <td className="px-3 py-2 text-right">$47,078</td>
+                            <td className="px-3 py-2 text-right">$47,078</td>
+                            <td className="px-3 py-2 text-right">$2</td>
+                            <td className="px-3 py-2 text-right text-green-600">$8,285</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">11 Equipment</td>
+                            <td className="px-3 py-2 text-right">$16,837</td>
+                            <td className="px-3 py-2 text-right">$1</td>
+                            <td className="px-3 py-2 text-right">$16,837</td>
+                            <td className="px-3 py-2 text-right">-</td>
+                            <td className="px-3 py-2 text-right">$16,837</td>
+                            <td className="px-3 py-2 text-right">$1</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">12 Furnishing</td>
+                            <td className="px-3 py-2 text-right">$99,730</td>
+                            <td className="px-3 py-2 text-right">$4</td>
+                            <td className="px-3 py-2 text-right">$2,858</td>
+                            <td className="px-3 py-2 text-right">$92,781</td>
+                            <td className="px-3 py-2 text-right">$95,639</td>
+                            <td className="px-3 py-2 text-right">$4</td>
+                            <td className="px-3 py-2 text-right text-green-600">$4,091</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">13 Special Construction</td>
+                            <td className="px-3 py-2 text-right">$49,132</td>
+                            <td className="px-3 py-2 text-right">$2</td>
+                            <td className="px-3 py-2 text-right">$49,132</td>
+                            <td className="px-3 py-2 text-right">-</td>
+                            <td className="px-3 py-2 text-right">$49,132</td>
+                            <td className="px-3 py-2 text-right">$2</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+
+                          {/* MEPs Section */}
+                          <tr className="bg-purple-50">
+                            <td className="px-3 py-2 font-semibold text-purple-800">MEPs</td>
+                            <td className="px-3 py-2 text-right font-semibold">$1,938,147</td>
+                            <td className="px-3 py-2 text-right">$74</td>
+                            <td className="px-3 py-2 text-right">$1,026,490</td>
+                            <td className="px-3 py-2 text-right">$1,323,688</td>
+                            <td className="px-3 py-2 text-right font-semibold">$2,350,178</td>
+                            <td className="px-3 py-2 text-right">$90</td>
+                            <td className="px-3 py-2 text-right text-red-600 font-semibold">-$412,031</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">21 Fire Suppression</td>
+                            <td className="px-3 py-2 text-right">$234,567</td>
+                            <td className="px-3 py-2 text-right">$9</td>
+                            <td className="px-3 py-2 text-right">$156,789</td>
+                            <td className="px-3 py-2 text-right">$123,456</td>
+                            <td className="px-3 py-2 text-right">$280,245</td>
+                            <td className="px-3 py-2 text-right">$11</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$45,678</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">22 Plumbing</td>
+                            <td className="px-3 py-2 text-right">$456,789</td>
+                            <td className="px-3 py-2 text-right">$18</td>
+                            <td className="px-3 py-2 text-right">$234,567</td>
+                            <td className="px-3 py-2 text-right">$345,678</td>
+                            <td className="px-3 py-2 text-right">$580,245</td>
+                            <td className="px-3 py-2 text-right">$22</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$123,456</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">23 HVAC</td>
+                            <td className="px-3 py-2 text-right">$678,901</td>
+                            <td className="px-3 py-2 text-right">$26</td>
+                            <td className="px-3 py-2 text-right">$345,678</td>
+                            <td className="px-3 py-2 text-right">$456,789</td>
+                            <td className="px-3 py-2 text-right">$802,467</td>
+                            <td className="px-3 py-2 text-right">$31</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$123,566</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">26 Electrical</td>
+                            <td className="px-3 py-2 text-right">$567,890</td>
+                            <td className="px-3 py-2 text-right">$22</td>
+                            <td className="px-3 py-2 text-right">$289,456</td>
+                            <td className="px-3 py-2 text-right">$398,765</td>
+                            <td className="px-3 py-2 text-right">$688,221</td>
+                            <td className="px-3 py-2 text-right">$26</td>
+                            <td className="px-3 py-2 text-right text-red-600">-$120,331</td>
+                          </tr>
+
+                          {/* Site Work Section */}
+                          <tr className="bg-brown-50 border-gray-300 border-t-2">
+                            <td className="px-3 py-2 font-semibold text-yellow-900">Site Work</td>
+                            <td className="px-3 py-2 text-right font-semibold">$1,247,892</td>
+                            <td className="px-3 py-2 text-right">$48</td>
+                            <td className="px-3 py-2 text-right">$1,247,892</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                            <td className="px-3 py-2 text-right font-semibold">$1,247,892</td>
+                            <td className="px-3 py-2 text-right">$48</td>
+                            <td className="px-3 py-2 text-right text-gray-600 font-semibold">$0</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">02 Existing Conditions</td>
+                            <td className="px-3 py-2 text-right">$124,789</td>
+                            <td className="px-3 py-2 text-right">$5</td>
+                            <td className="px-3 py-2 text-right">$124,789</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                            <td className="px-3 py-2 text-right">$124,789</td>
+                            <td className="px-3 py-2 text-right">$5</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">31 Earthwork</td>
+                            <td className="px-3 py-2 text-right">$456,123</td>
+                            <td className="px-3 py-2 text-right">$17</td>
+                            <td className="px-3 py-2 text-right">$456,123</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                            <td className="px-3 py-2 text-right">$456,123</td>
+                            <td className="px-3 py-2 text-right">$17</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">32 Exterior Improvements</td>
+                            <td className="px-3 py-2 text-right">$332,456</td>
+                            <td className="px-3 py-2 text-right">$13</td>
+                            <td className="px-3 py-2 text-right">$332,456</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                            <td className="px-3 py-2 text-right">$332,456</td>
+                            <td className="px-3 py-2 text-right">$13</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">33 Utilities</td>
+                            <td className="px-3 py-2 text-right">$334,524</td>
+                            <td className="px-3 py-2 text-right">$13</td>
+                            <td className="px-3 py-2 text-right">$334,524</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                            <td className="px-3 py-2 text-right">$334,524</td>
+                            <td className="px-3 py-2 text-right">$13</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+
+                          {/* GC Charges Section */}
+                          <tr className="bg-gray-100">
+                            <td className="px-3 py-2 font-semibold text-gray-800">GC Charges</td>
+                            <td className="px-3 py-2 text-right font-semibold">$892,345</td>
+                            <td className="px-3 py-2 text-right">$34</td>
+                            <td className="px-3 py-2 text-right">$456,789</td>
+                            <td className="px-3 py-2 text-right">$234,567</td>
+                            <td className="px-3 py-2 text-right font-semibold">$691,356</td>
+                            <td className="px-3 py-2 text-right">$26</td>
+                            <td className="px-3 py-2 text-right text-green-600 font-semibold">$200,989</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">01 General Requirements</td>
+                            <td className="px-3 py-2 text-right">$692,345</td>
+                            <td className="px-3 py-2 text-right">$27</td>
+                            <td className="px-3 py-2 text-right">$356,789</td>
+                            <td className="px-3 py-2 text-right">$134,567</td>
+                            <td className="px-3 py-2 text-right">$491,356</td>
+                            <td className="px-3 py-2 text-right">$19</td>
+                            <td className="px-3 py-2 text-right text-green-600">$200,989</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 pl-6">00 Fees</td>
+                            <td className="px-3 py-2 text-right">$200,000</td>
+                            <td className="px-3 py-2 text-right">$8</td>
+                            <td className="px-3 py-2 text-right">$100,000</td>
+                            <td className="px-3 py-2 text-right">$100,000</td>
+                            <td className="px-3 py-2 text-right">$200,000</td>
+                            <td className="px-3 py-2 text-right">$8</td>
+                            <td className="px-3 py-2 text-right">$0</td>
+                          </tr>
+
+                          {/* Total Row */}
+                          <tr className="bg-gray-700 text-white font-bold text-base">
+                            <td className="px-3 py-3">PROJECT TOTAL</td>
+                            <td className="px-3 py-3 text-right">$10,060,303</td>
+                            <td className="px-3 py-3 text-right">$387</td>
+                            <td className="px-3 py-3 text-right">$4,777,945</td>
+                            <td className="px-3 py-3 text-right">$6,462,156</td>
+                            <td className="px-3 py-3 text-right">$11,240,101</td>
+                            <td className="px-3 py-3 text-right">$432</td>
+                            <td className="px-3 py-3 text-right text-red-400">-$179,798</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold text-raap-dark mb-3">Project Cost Summary</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between p-3 bg-blue-50 rounded border border-blue-200">
+                          <span>RaaP Modular Cost</span>
+                          <div className="text-right">
+                            <div className="font-semibold text-blue-600">$10,821,565</div>
+                            <div className="text-sm text-gray-600">$411/sf • 9 Months</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between p-3 bg-gray-50 rounded">
+                          <span>Traditional Site-Built</span>
+                          <div className="text-right">
+                            <div className="font-semibold">$10,960,303</div>
+                            <div className="text-sm text-gray-600">$422/sf • 13 Months</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between p-3 bg-green-50 rounded border border-green-200">
+                          <span>Cost Savings</span>
+                          <div className="text-right">
+                            <div className="font-semibold text-green-600">$138,738</div>
+                            <div className="text-sm text-gray-600">1.2% savings</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-raap-dark mb-3">Per Unit Analysis</h4>
+                      <div className="bg-white border rounded-lg p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span>Number of Units</span>
+                            <span className="font-semibold">24</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Average Unit Area</span>
+                            <span className="font-semibold">792 sf</span>
+                          </div>
+                          <hr className="my-2" />
+                          <div className="flex justify-between">
+                            <span>Cost per Unit (RaaP)</span>
+                            <span className="font-semibold text-blue-600">$450,899</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Cost per Sq Ft (RaaP)</span>
+                            <span className="font-semibold text-blue-600">$411</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Simulator Tab */}
+          <TabsContent value="simulator">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Calculator className="h-5 w-5" />
+                    <span>Interactive Cost Simulator</span>
+                    <Badge variant="outline" className="ml-auto bg-blue-100 text-blue-700 border-blue-300">
+                      Live Model
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Adjust project parameters to see real-time cost impacts from our integrated financial model
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Parameter Controls */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Unit Mix</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">1-Bedroom Units</label>
+                            <div className="flex items-center space-x-3">
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="15" 
+                                value={simulator.state.oneBedUnits}
+                                onChange={(e) => simulator.updateParameter('oneBedUnits', parseInt(e.target.value))}
+                                className="flex-1"
+                                data-testid="slider-one-bedroom"
+                              />
+                              <span className="w-8 text-sm font-medium">{simulator.state.oneBedUnits}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">2-Bedroom Units</label>
+                            <div className="flex items-center space-x-3">
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="15" 
+                                value={simulator.state.twoBedUnits}
+                                onChange={(e) => simulator.updateParameter('twoBedUnits', parseInt(e.target.value))}
+                                className="flex-1"
+                                data-testid="slider-two-bedroom"
+                              />
+                              <span className="w-8 text-sm font-medium">{simulator.state.twoBedUnits}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">3-Bedroom Units</label>
+                            <div className="flex items-center space-x-3">
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="10" 
+                                value={simulator.state.threeBedUnits}
+                                onChange={(e) => simulator.updateParameter('threeBedUnits', parseInt(e.target.value))}
+                                className="flex-1"
+                                data-testid="slider-three-bedroom"
+                              />
+                              <span className="w-8 text-sm font-medium">{simulator.state.threeBedUnits}</span>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t">
+                            <div className="flex justify-between text-sm">
+                              <span>Total Units:</span>
+                              <span className="font-semibold">{simulator.getTotalUnits()}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Building Configuration</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Number of Floors</label>
+                            <select 
+                              className="w-full p-2 border rounded-md" 
+                              data-testid="select-floors"
+                              value={simulator.state.floors}
+                              onChange={(e) => simulator.updateParameter('floors', parseInt(e.target.value))}
+                            >
+                              <option value="2">2 Floors</option>
+                              <option value="3">3 Floors</option>
+                              <option value="4">4 Floors</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Building Type</label>
+                            <select 
+                              className="w-full p-2 border rounded-md" 
+                              data-testid="select-building-type"
+                              value={simulator.state.buildingType}
+                              onChange={(e) => simulator.updateParameter('buildingType', e.target.value)}
+                            >
+                              <option value="garden">Garden Style</option>
+                              <option value="stacked">Stacked Flats</option>
+                              <option value="townhome">Townhome Style</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Parking Type</label>
+                            <select 
+                              className="w-full p-2 border rounded-md" 
+                              data-testid="select-parking"
+                              value={simulator.state.parkingType}
+                              onChange={(e) => simulator.updateParameter('parkingType', e.target.value)}
+                            >
+                              <option value="surface">Surface Parking</option>
+                              <option value="covered">Covered Parking</option>
+                              <option value="garage">Garage Parking</option>
+                            </select>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Location Factors</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Market Location</label>
+                            <select 
+                              className="w-full p-2 border rounded-md" 
+                              data-testid="select-location"
+                              value={simulator.state.location}
+                              onChange={(e) => simulator.updateParameter('location', e.target.value)}
+                            >
+                              <option value="vallejo">Vallejo, CA</option>
+                              <option value="sacramento">Sacramento, CA</option>
+                              <option value="fresno">Fresno, CA</option>
+                              <option value="stockton">Stockton, CA</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Prevailing Wage</label>
+                            <div className="flex items-center space-x-2">
+                              <input 
+                                type="checkbox" 
+                                checked={simulator.state.prevailingWage}
+                                onChange={(e) => simulator.updateParameter('prevailingWage', e.target.checked)}
+                                className="h-4 w-4" 
+                                data-testid="checkbox-prevailing-wage" 
+                              />
+                              <span className="text-sm">Required</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Site Conditions</label>
+                            <select 
+                              className="w-full p-2 border rounded-md" 
+                              data-testid="select-site-conditions"
+                              value={simulator.state.siteConditions}
+                              onChange={(e) => simulator.updateParameter('siteConditions', e.target.value)}
+                            >
+                              <option value="standard">Standard</option>
+                              <option value="challenging">Challenging</option>
+                              <option value="complex">Complex</option>
+                            </select>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Results Display */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Cost Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                              <div className="text-center">
+                                <div className="text-2xl font-bold text-blue-700 mb-1">{simulator.formatCurrency(simulator.results.totalCost)}</div>
+                                <div className="text-sm text-blue-600">Total Project Cost</div>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-lg font-semibold text-gray-700">${simulator.results.costPerSF}</div>
+                                <div className="text-xs text-gray-600">Cost per SF</div>
+                              </div>
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-lg font-semibold text-gray-700">{simulator.formatCurrency(simulator.results.costPerUnit)}</div>
+                                <div className="text-xs text-gray-600">Cost per Unit</div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 pt-2 border-t">
+                              <div className="flex justify-between text-sm">
+                                <span>Modular Total:</span>
+                                <span className="font-semibold text-green-600">{simulator.formatCurrency(simulator.results.modularTotal)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span>Site-Built Est:</span>
+                                <span className="font-semibold">{simulator.formatCurrency(simulator.results.siteBuiltTotal)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold text-green-600">
+                                <span>Savings:</span>
+                                <span>{simulator.formatCurrency(simulator.results.savings)} ({simulator.results.savingsPercent}%)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Cost Breakdown</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm">
+                              <span>Site Preparation:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.sitePreparation)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Foundation:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.foundation)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Modular Units:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.modularUnits)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Site Assembly:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.siteAssembly)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>MEP Connections:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.mepConnections)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Finish Work:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.finishWork)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Soft Costs:</span>
+                              <span className="font-medium">{simulator.formatCurrency(simulator.results.breakdown.softCosts)}</span>
+                            </div>
+                            <div className="pt-2 border-t flex justify-between font-semibold">
+                              <span>Total:</span>
+                              <span>{simulator.formatCurrency(simulator.results.totalCost)}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-between items-center pt-4 border-t">
+                      <div className="text-sm text-gray-600">
+                        Powered by integrated Google Sheets financial model
+                      </div>
+                      <div className="flex space-x-3">
+                        <button 
+                          className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm ${simulator.isCalculating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={simulator.updateModel}
+                          disabled={simulator.isCalculating}
+                          data-testid="button-update-model"
+                        >
+                          {simulator.isCalculating ? 'Calculating...' : 'Update Model'}
+                        </button>
+                        <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm" data-testid="button-save-scenario">
+                          Save Scenario
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Bids Tab */}
+          <TabsContent value="costs">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Handshake className="h-5 w-5" />
+                    <span>Project Bids</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Bids and final cost collaboration will be implemented here...</p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Complete Assessment Button */}
+        {!project.smartStartComplete && (
+          <Card className="mt-8">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-raap-dark mb-1">Complete SmartStart Application</h3>
+                  <p className="text-gray-600">
+                    Once you've completed all design work, reviewed AOR requirements, finalized cost analysis, and collected bids, 
+                    mark this application as complete to proceed to FabAssure.
+                  </p>
+                </div>
+                <Button
+                  className="bg-raap-green hover:bg-green-700"
+                  onClick={() => markAsComplete.mutate()}
+                  disabled={markAsComplete.isPending}
+                  data-testid="button-complete-smartstart"
+                >
+                  {markAsComplete.isPending ? "Completing..." : "Complete SmartStart"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Success Message */}
+        {project.smartStartComplete && (
+          <Card className="mt-8 border-green-200 bg-green-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2 text-green-700">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-semibold">SmartStart Complete!</span>
+              </div>
+              <p className="text-green-600 mt-2">
+                Your SmartStart application has been completed. You can now proceed to FabAssure for partner marketplace and factory coordination.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+    </div>
+  );
+}
