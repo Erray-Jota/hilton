@@ -138,6 +138,15 @@ export default function HiltonEstimator() {
             return;
         }
 
+
+        // Capture current content as base - eliminates race conditions and duplication
+        const currentBase = target === 'chat' ? chatTranscript :
+            target === 'emailAI' ? emailAITranscript :
+                emailMessage;
+
+        // Sanitize base: remove any trailing [...] placeholder
+        const cleanBase = currentBase.replace(/\s*\[\.\.\.\]\s*$/, '').trim();
+
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
             const recognition = new SpeechRecognition();
@@ -160,50 +169,27 @@ export default function HiltonEstimator() {
                     }
                 }
 
-                // Update with interim results for real-time display
+                // Construct text using stable cleanBase + new results
                 if (interimTranscript) {
-                    if (target === 'chat') {
-                        setChatTranscript(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
-                        });
-                    } else if (target === 'emailAI') {
-                        setEmailAITranscript(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
-                        });
-                    } else {
-                        setEmailMessage(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + interimTranscript + ' [...]';
-                        });
-                    }
+                    const newText = cleanBase + (cleanBase ? ' ' : '') + interimTranscript + ' [...]';
+                    if (target === 'chat') setChatTranscript(newText);
+                    else if (target === 'emailAI') setEmailAITranscript(newText);
+                    else setEmailMessage(newText);
                 }
 
-                // Update with final results
                 if (finalTranscript) {
+                    const newText = cleanBase + (cleanBase ? ' ' : '') + finalTranscript;
+
                     if (target === 'chat') {
-                        setChatTranscript(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + finalTranscript;
-                        });
+                        setChatTranscript(newText);
                     } else if (target === 'emailAI') {
-                        setEmailAITranscript(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            const newTranscript = base + (base ? ' ' : '') + finalTranscript;
-
-                            // Parse email command only on final transcript
-                            const parsed = parseEmailCommand(newTranscript);
-                            if (parsed.recipient) setEmailRecipient(parsed.recipient);
-                            if (parsed.message) setEmailMessage(parsed.message);
-
-                            return newTranscript;
-                        });
+                        // Parse email command only on final result
+                        const parsed = parseEmailCommand(newText);
+                        if (parsed.recipient) setEmailRecipient(parsed.recipient);
+                        if (parsed.message) setEmailMessage(parsed.message);
+                        setEmailAITranscript(newText);
                     } else {
-                        setEmailMessage(prev => {
-                            const base = prev.split('[...]')[0].trim();
-                            return base + (base ? ' ' : '') + finalTranscript;
-                        });
+                        setEmailMessage(newText);
                     }
                 }
             };
