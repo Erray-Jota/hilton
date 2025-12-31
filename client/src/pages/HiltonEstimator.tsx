@@ -35,7 +35,7 @@ const formatCurrency = (value: number) =>
 
 // Sticky metrics bar for mobile
 const StickyMetrics = ({ data }: { data: CostData }) => (
-    <div className="lg:hidden sticky top-14 z-40 bg-white border-b border-gray-200 shadow-sm -mx-4 px-4 py-2">
+    <div className="lg:hidden sticky top-12 z-40 bg-white border-b border-gray-200 shadow-sm -mx-4 px-4 py-2">
         <div className="grid grid-cols-3 gap-2">
             <div className="bg-[#003f87] text-white p-2 rounded-lg">
                 <div className="text-[10px] opacity-80 uppercase font-semibold">Total Cost</div>
@@ -205,6 +205,7 @@ export default function HiltonEstimator() {
             .toLowerCase()
             .replace(/\s+at\s+/g, '@')
             .replace(/\s+dot\s+/g, '.')
+            .replace(/dotcom/g, '.com')
             .replace(/\s+/g, ''); // Remove remaining spaces
     };
 
@@ -212,8 +213,9 @@ export default function HiltonEstimator() {
     const parseEmailCommand = (text: string): { recipient: string; message: string } => {
         const lowerText = text.toLowerCase();
 
-        // Extract email address after "to" - look for pattern with "at" and "dot"
-        const emailPattern = /(?:send\s+(?:an?\s+)?email\s+to|to)\s+([\w\s]+\s+at\s+[\w\s]+\s+dot\s+[\w\s]+?)(?:\s+with\s+message|\s+saying|$)/i;
+        // Extract email address after "to" - simplified regex to capture broad range of inputs
+        // This captures everything between "to" and "with message/saying" to handle "rj at raap dot..." or "rj@raap..."
+        const emailPattern = /(?:send\s+(?:an?\s+)?email\s+to|to)\s+(.+?)(?:\s+with\s+message|\s+saying|$)/i;
         const emailMatch = lowerText.match(emailPattern);
         const recipient = emailMatch ? parseEmailFromSpeech(emailMatch[1].trim()) : '';
 
