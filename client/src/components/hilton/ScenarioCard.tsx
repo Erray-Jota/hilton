@@ -152,7 +152,7 @@ export const ScenarioCard = memo(({
     }, [validRooms, localRooms]);
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-white rounded-lg shadow-sm border border-gray-200">
             {/* 1. Header - hidden on mobile via CSS, visible on desktop */}
             <div
                 className={`py-2 px-4 text-white font-bold text-lg ${isMobile ? 'hidden lg:block' : ''}`}
