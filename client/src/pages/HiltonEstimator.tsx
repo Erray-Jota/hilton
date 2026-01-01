@@ -34,24 +34,7 @@ const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
 // Sticky metrics bar for mobile
-const StickyMetrics = ({ data }: { data: CostData }) => (
-    <div className="lg:hidden sticky top-12 z-40 bg-white border-b border-gray-200 shadow-sm -mx-4 px-4 py-2">
-        <div className="grid grid-cols-3 gap-2">
-            <div className="bg-[#003f87] text-white p-2 rounded-lg">
-                <div className="text-[10px] opacity-80 uppercase font-semibold">Total Cost</div>
-                <div className="text-sm font-bold truncate">{formatCurrency(data.totalLocal)}</div>
-            </div>
-            <div className="bg-white p-2 rounded-lg border-t-4 border-yellow-400 border border-gray-100">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">Cost/Room</div>
-                <div className="text-sm font-bold text-[#003f87] truncate">{formatCurrency(data.costPerKey)}</div>
-            </div>
-            <div className="bg-white p-2 rounded-lg border border-gray-200">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">Cost/SF</div>
-                <div className="text-sm font-bold text-[#003f87] truncate">{formatCurrency(data.costPerSf)}</div>
-            </div>
-        </div>
-    </div>
-);
+
 
 export default function HiltonEstimator() {
     const [scenario1, setScenario1] = useState<ScenarioState>({
@@ -139,9 +122,17 @@ export default function HiltonEstimator() {
         }
 
 
-        // Capture current content as base - eliminates race conditions and duplication
+
+        // Auto-clear for fresh voice command
+        if (target === 'emailAI') {
+            setEmailAITranscript("");
+            setEmailRecipient("");
+            setEmailMessage("");
+        }
+
+        // Capture current content as base. For emailAI, we just cleared it, so base is empty.
         const currentBase = target === 'chat' ? chatTranscript :
-            target === 'emailAI' ? emailAITranscript :
+            target === 'emailAI' ? "" : // Force empty base for emailAI
                 emailMessage;
 
         // Sanitize base: remove any trailing [...] placeholder
@@ -738,8 +729,7 @@ export default function HiltonEstimator() {
                         </div>
                     </header>
 
-                    {/* Sticky Metrics Bar - Mobile Only */}
-                    <StickyMetrics data={data1} />
+
 
                     {/* Content */}
                     <main id="main-content" className="max-w-[1400px] mx-auto px-3 md:px-4 py-3 md:py-6">
@@ -822,7 +812,7 @@ export default function HiltonEstimator() {
                             <Label htmlFor="message" className="text-lg">Message (Optional)</Label>
                             <Textarea
                                 id="message"
-                                placeholder="Project details..."
+                                placeholder="Enter message (optional)..."
                                 className="min-h-[150px] text-lg p-4"
                                 value={emailMessage}
                                 onChange={(e) => setEmailMessage(e.target.value)}
