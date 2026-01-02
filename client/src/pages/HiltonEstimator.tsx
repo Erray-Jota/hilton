@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { loadGoogleMaps } from "@/lib/googleMapsLoader";
 
 import raapLogo from "@assets/raap-logo-new.png";
+import { trackEvent } from "@/lib/analytics";
 
 // Import types and sub-components
 import { type ScenarioState, type CostData, initialCostData } from "@/components/hilton/types";
@@ -63,7 +64,16 @@ export default function HiltonEstimator() {
             const res = await apiRequest("POST", "/api/hilton/calculate", vars);
             return res.json();
         },
-        onSuccess: (data) => setData1(data),
+        onSuccess: (data) => {
+            setData1(data);
+            trackEvent('scenario_calculated', {
+                brand: scenario1.brand,
+                location: scenario1.location,
+                rooms: scenario1.rooms,
+                floors: scenario1.floors,
+                scenario_id: '1'
+            });
+        },
         onError: (err) => console.error("Error fetching scenario 1:", err)
     });
 
@@ -73,7 +83,16 @@ export default function HiltonEstimator() {
             const res = await apiRequest("POST", "/api/hilton/calculate", vars);
             return res.json();
         },
-        onSuccess: (data) => setData2(data),
+        onSuccess: (data) => {
+            setData2(data);
+            trackEvent('scenario_calculated', {
+                brand: scenario2.brand,
+                location: scenario2.location,
+                rooms: scenario2.rooms,
+                floors: scenario2.floors,
+                scenario_id: '2'
+            });
+        },
         onError: (err) => console.error("Error fetching scenario 2:", err)
     });
 
@@ -134,6 +153,7 @@ export default function HiltonEstimator() {
             recognition.onstart = () => setIsListening(true);
             recognition.onend = () => setIsListening(false);
             recognition.onresult = (event: any) => {
+                trackEvent('assistant_interaction', { interaction_type: 'voice' });
                 let interimTranscript = '';
                 let finalTranscript = '';
 
@@ -355,6 +375,7 @@ export default function HiltonEstimator() {
 
     const generateCSV = async () => {
         // console.log("🔥 generateCSV called - SAVE PICKER VERSION");
+        trackEvent('file_download', { file_type: 'csv' });
 
         // Headers
         const headers = ["Inputs & Assumptions", "Scenario A", "Scenario B"];
@@ -454,6 +475,7 @@ export default function HiltonEstimator() {
                     title: 'Your RaaP Estimate',
                     text: `Here is your estimate for a ${scenario1.rooms} room, ${scenario1.floors} floors, ${scenario1.brand} in ${scenario1.location}.`
                 });
+                trackEvent('share_estimate', { method: 'email', brand: scenario1.brand, location: scenario1.location });
             } else {
                 alert("Sharing is not supported on this device/browser. Please use the PDF button.");
             }
@@ -465,6 +487,7 @@ export default function HiltonEstimator() {
     };
 
     const generatePDF = async () => {
+        trackEvent('file_download', { file_type: 'pdf' });
         const input = document.getElementById('pdf-content');
         if (!input) return;
 
