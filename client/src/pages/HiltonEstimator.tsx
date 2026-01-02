@@ -450,7 +450,9 @@ export default function HiltonEstimator() {
 
             if (navigator.share) {
                 await navigator.share({
-                    files: [file]
+                    files: [file],
+                    title: 'Your RaaP Estimate',
+                    text: `Here is the cost estimate for ${scenario1.brand} in ${scenario1.location}. Rooms: ${scenario1.rooms}, Floors: ${scenario1.floors}.`
                 });
             } else {
                 alert("Sharing is not supported on this device/browser. Please use the PDF button.");
@@ -590,7 +592,7 @@ export default function HiltonEstimator() {
     );
 
     return (
-        <div id="pdf-content" className="min-h-screen bg-white overflow-x-hidden">
+        <div id="pdf-content" className="min-h-screen bg-white">
             {/* 
               CONDITIONAL VIEW RENDERING 
               We render different full-page views based on 'activeView' state.
