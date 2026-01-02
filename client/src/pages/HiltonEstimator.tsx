@@ -452,7 +452,7 @@ export default function HiltonEstimator() {
                 await navigator.share({
                     files: [file],
                     title: 'Your RaaP Estimate',
-                    text: `Here is the cost estimate for ${scenario1.brand} in ${scenario1.location}. Rooms: ${scenario1.rooms}, Floors: ${scenario1.floors}.`
+                    text: `Here is your estimate for a ${scenario1.rooms} room, ${scenario1.floors} floors, ${scenario1.brand} in ${scenario1.location}.`
                 });
             } else {
                 alert("Sharing is not supported on this device/browser. Please use the PDF button.");
@@ -667,7 +667,36 @@ export default function HiltonEstimator() {
 
 
                     {/* Content */}
+                    {/* Content */}
                     <main id="main-content" className="max-w-[1400px] mx-auto px-3 md:px-4 py-3 md:py-6">
+
+                        {/* Mobile Persistent Fixed Metrics */}
+                        <div className="lg:hidden fixed top-14 left-0 right-0 z-40 bg-white px-3 py-2 border-b border-gray-100 shadow-sm">
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-[#003f87] text-white p-2 rounded-lg shadow-sm min-h-[50px]">
+                                    <div className="text-[10px] opacity-80 uppercase font-semibold tracking-wide">Total Cost</div>
+                                    <div className="text-base font-bold truncate mt-0.5" title={formatCurrency(data1.totalLocal)}>
+                                        {formatCurrency(data1.totalLocal)}
+                                    </div>
+                                </div>
+                                <div className="bg-white p-2 rounded-lg shadow-sm border-t-4 border-yellow-400 border border-gray-100 min-h-[50px]">
+                                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Cost/Room</div>
+                                    <div className="text-base font-bold text-[#003f87] truncate mt-0.5">
+                                        {formatCurrency(data1.costPerKey)}
+                                    </div>
+                                </div>
+                                <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200 min-h-[50px]">
+                                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Cost/SF</div>
+                                    <div className="text-base font-bold text-[#003f87] truncate mt-0.5">
+                                        {formatCurrency(data1.costPerSf)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Spacer for Fixed Metrics */}
+                        <div className="lg:hidden h-[72px]" />
+
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
                             <ScenarioCard
                                 title="Scenario A"
@@ -676,7 +705,8 @@ export default function HiltonEstimator() {
                                 data={data1}
                                 onUpdate={u => setScenario1(p => ({ ...p, ...u }))}
                                 isMobile={true}
-                                logoHeight="h-16 md:h-20" // 2X Bigger Logo as requested
+                                hideMetrics={true}
+                                logoHeight="h-16 md:h-20"
                             />
                             <div className="hidden lg:block">
                                 <ScenarioCard
