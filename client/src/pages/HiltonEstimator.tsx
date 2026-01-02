@@ -50,15 +50,12 @@ export default function HiltonEstimator() {
     const [showMethodology, setShowMethodology] = useState(false);
 
     // View State for Mobile (Estimator is default)
-    const [activeView, setActiveView] = useState<'estimator' | 'email' | 'assistant'>('estimator');
+    const [activeView, setActiveView] = useState<'estimator' | 'assistant'>('estimator');
 
     // Chat & Voice State
     const [chatTranscript, setChatTranscript] = useState("");
-    const [emailAITranscript, setEmailAITranscript] = useState(""); // Separate state for email AI assistant
-    const [emailMessage, setEmailMessage] = useState(""); // Add separate state for email message
-    const [emailRecipient, setEmailRecipient] = useState(""); // Email recipient address
     const [isListening, setIsListening] = useState(false);
-    const [voiceTarget, setVoiceTarget] = useState<'chat' | 'email' | 'emailAI'>('chat'); // Track which input is receiving voice
+    const [voiceTarget, setVoiceTarget] = useState<'chat'>('chat'); // Track which input is receiving voice
 
     // Data Fetching for Scenario 1
     const mutation1 = useMutation({
@@ -114,26 +111,15 @@ export default function HiltonEstimator() {
     }, [scenario2]);
 
 
-    const toggleListening = (target: 'chat' | 'email' | 'emailAI') => {
+    const toggleListening = (target: 'chat') => {
         setVoiceTarget(target);
         if (isListening) {
             setIsListening(false);
             return;
         }
 
-
-
-        // Auto-clear for fresh voice command
-        if (target === 'emailAI') {
-            setEmailAITranscript("");
-            setEmailRecipient("");
-            setEmailMessage("");
-        }
-
-        // Capture current content as base. For emailAI, we just cleared it, so base is empty.
-        const currentBase = target === 'chat' ? chatTranscript :
-            target === 'emailAI' ? "" : // Force empty base for emailAI
-                emailMessage;
+        // Capture current content as base.
+        const currentBase = chatTranscript;
 
         // Sanitize base: remove any trailing [...] placeholder
         const cleanBase = currentBase.replace(/\s*\[\.\.\.\]\s*$/, '').trim();
@@ -163,58 +149,18 @@ export default function HiltonEstimator() {
                 // Construct text using stable cleanBase + new results
                 if (interimTranscript) {
                     const newText = cleanBase + (cleanBase ? ' ' : '') + interimTranscript + ' [...]';
-                    if (target === 'chat') setChatTranscript(newText);
-                    else if (target === 'emailAI') setEmailAITranscript(newText);
-                    else setEmailMessage(newText);
+                    setChatTranscript(newText);
                 }
 
                 if (finalTranscript) {
                     const newText = cleanBase + (cleanBase ? ' ' : '') + finalTranscript;
-
-                    if (target === 'chat') {
-                        setChatTranscript(newText);
-                    } else if (target === 'emailAI') {
-                        // Parse email command only on final result
-                        const parsed = parseEmailCommand(newText);
-                        if (parsed.recipient) setEmailRecipient(parsed.recipient);
-                        if (parsed.message) setEmailMessage(parsed.message);
-                        setEmailAITranscript(newText);
-                    } else {
-                        setEmailMessage(newText);
-                    }
+                    setChatTranscript(newText);
                 }
             };
             recognition.start();
         } else {
             alert("Speech recognition not supported in this browser.");
         }
-    };
-
-    // Helper function to parse email addresses from speech
-    const parseEmailFromSpeech = (text: string): string => {
-        return text
-            .toLowerCase()
-            .replace(/\s+at\s+/g, '@')
-            .replace(/\s+dot\s+/g, '.')
-            .replace(/dotcom/g, '.com')
-            .replace(/\s+/g, ''); // Remove remaining spaces
-    };
-
-    // Helper function to parse email commands (e.g., "send email to x at y dot z")
-    const parseEmailCommand = (text: string): { recipient: string; message: string } => {
-        const lowerText = text.toLowerCase();
-
-        // Extract email address after "to" - simplified regex to capture broad range of inputs
-        // This captures everything between "to" and "with message/saying" to handle "rj at raap dot..." or "rj@raap..."
-        const emailPattern = /(?:send\s+(?:an?\s+)?email\s+to|to)\s+(.+?)(?:\s+with\s+message|\s+saying|$)/i;
-        const emailMatch = lowerText.match(emailPattern);
-        const recipient = emailMatch ? parseEmailFromSpeech(emailMatch[1].trim()) : '';
-
-        // Extract message after "with message" or "saying"
-        const messageMatch = lowerText.match(/(?:with\s+message|saying)\s+(.+)/i);
-        const message = messageMatch ? messageMatch[1].trim() : '';
-
-        return { recipient, message };
     };
 
     // Chat State
@@ -475,6 +421,47 @@ export default function HiltonEstimator() {
         URL.revokeObjectURL(url);
     };
 
+    const handleMobileEmailShare = async () => {
+        const input = document.getElementById('pdf-content');
+        if (!input) return;
+
+        try {
+            const canvas = await html2canvas(input, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+            const pdfBlob = pdf.output('blob');
+            console.log("PDF Blob Size:", pdfBlob.size); // Debugging
+
+            if (pdfBlob.size === 0) {
+                alert("Error: PDF generation failed (Empty File).");
+                return;
+            }
+
+            const file = new File([pdfBlob], "RaaP_Estimate.pdf", {
+                type: "application/pdf",
+                lastModified: new Date().getTime()
+            });
+
+            if (navigator.share) {
+                await navigator.share({
+                    files: [file]
+                });
+            } else {
+                alert("Sharing is not supported on this device/browser. Please use the PDF button.");
+            }
+        } catch (error) {
+            console.error("Error sharing:", error);
+            // Show the actual error message to the user for better debugging
+            alert(`Share failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    };
+
     const generatePDF = async () => {
         const input = document.getElementById('pdf-content');
         if (!input) return;
@@ -597,62 +584,8 @@ export default function HiltonEstimator() {
                     </div>
                 </div>
 
-                {/* Email Composition Section */}
-                <div className="relative bg-gray-50 p-2 rounded-lg border border-gray-100 mt-2">
-                    <Label className="text-[#003f87] font-semibold mb-1 block text-xs">Email Composition</Label>
-
-                    <div className="space-y-2">
-                        <div>
-                            <Label className="text-[10px] uppercase text-gray-400">To (say "at" for @, "dot" for .)</Label>
-                            <div className="relative">
-                                <Input
-                                    value={parseEmailFromSpeech(emailMessage.split('\n')[0] || '')}
-                                    onChange={(e) => {
-                                        const lines = emailMessage.split('\n');
-                                        lines[0] = e.target.value;
-                                        setEmailMessage(lines.join('\n'));
-                                    }}
-                                    className="h-8 text-xs pr-10"
-                                    placeholder="e.g., rj@raap.builders"
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`absolute bottom-0 right-0 h-8 w-8 ${isListening && voiceTarget === 'email' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
-                                    onClick={() => toggleListening('email')}
-                                >
-                                    <Mic className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label className="text-[10px] uppercase text-gray-400">Message</Label>
-                            <Textarea
-                                value={emailMessage.split('\n').slice(1).join('\n')}
-                                onChange={(e) => {
-                                    const firstLine = emailMessage.split('\n')[0] || '';
-                                    setEmailMessage(firstLine + '\n' + e.target.value);
-                                }}
-                                placeholder="Thank you message will be generated here..."
-                                className="h-20 text-xs resize-none"
-                            />
-                        </div>
-
-                        <Button
-                            onClick={() => {
-                                const email = parseEmailFromSpeech(emailMessage.split('\n')[0] || '');
-                                const message = emailMessage.split('\n').slice(1).join('\n') ||
-                                    `Thank you for your interest in our Hilton Cost Estimator. Please find the attached estimate for your review.`;
-                                alert(`Email would be sent to: ${email}\n\nMessage:\n${message}`);
-                            }}
-                            className="w-full bg-[#f0ab00] hover:bg-[#d49600] h-8 text-xs"
-                        >
-                            Send Email
-                        </Button>
-                    </div>
-                </div>
             </div>
+
         </div>
     );
 
@@ -765,174 +698,94 @@ export default function HiltonEstimator() {
                 </>
             )}
 
-            {/* --- VIEW: EMAIL --- */}
-            {activeView === 'email' && (
-                <div className="min-h-screen bg-white pb-20">
-                    <header className="border-b border-gray-200 bg-white p-4 sticky top-0 z-50 flex items-center gap-3">
-                        <img src={raapLogo} alt="RaaP" className="h-8" />
-                        <h1 className="text-xl font-bold text-[#003f87]">Email Estimate</h1>
-                    </header>
-                    <main className="p-4 space-y-6">
-                        {/* AI Assistant Box */}
-                        <div className="relative bg-gray-50 p-4 rounded-lg border border-gray-100">
-                            <Label className="text-[#003f87] font-semibold mb-2 block text-base">AI Assistant</Label>
-                            <div className="relative">
-                                <Textarea
-                                    value={emailAITranscript}
-                                    onChange={(e) => setEmailAITranscript(e.target.value)}
-                                    placeholder="Tap mic to speak... (e.g., 'send email to rj at raap dot builders with message thank you')"
-                                    className="min-h-[100px] text-base p-4 pr-14 bg-white resize-none"
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`absolute top-2 right-2 ${isListening && voiceTarget === 'emailAI' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
-                                    onClick={() => toggleListening('emailAI')}
-                                >
-                                    <Mic className="h-6 w-6" />
-                                </Button>
-                            </div>
-                        </div>
 
-                        {/* Email Address Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-lg">Email Address</Label>
-                            <Input
-                                id="email"
-                                placeholder="name@company.com"
-                                type="email"
-                                className="h-12 text-lg"
-                                value={emailRecipient}
-                                onChange={(e) => setEmailRecipient(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Message Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="message" className="text-lg">Message (Optional)</Label>
-                            <Textarea
-                                id="message"
-                                placeholder="Enter message (optional)..."
-                                className="min-h-[150px] text-lg p-4"
-                                value={emailMessage}
-                                onChange={(e) => setEmailMessage(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Send Email Button */}
-                        <Button
-                            onClick={() => {
-                                if (!emailRecipient) {
-                                    alert('Please enter an email address');
-                                    return;
-                                }
-
-                                // Generate PDF and prepare email
-                                const subject = `Hilton Cost Estimate - ${scenario1.brand}`;
-                                const body = emailMessage || `Please find attached the cost estimate for ${scenario1.rooms} rooms at ${scenario1.location || 'your location'}.`;
-
-                                // Use mailto: for now (can be replaced with API call)
-                                const mailtoLink = `mailto:${emailRecipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                                window.location.href = mailtoLink;
-
-                                // Generate PDF
-                                generatePDF();
-
-                                // Return to estimator
-                                setTimeout(() => setActiveView('estimator'), 1000);
-                            }}
-                            className="w-full bg-[#003f87] h-14 text-lg font-semibold"
-                        >
-                            <Send className="mr-2 h-5 w-5" /> Send Email
-                        </Button>
-                    </main>
-                </div>
-            )}
 
             {/* --- VIEW: ASSISTANT (Chat) --- */}
-            {activeView === 'assistant' && (
-                <div className="min-h-screen bg-white pb-14 overflow-hidden">
-                    <header className="border-b border-gray-200 bg-white p-3 sticky top-0 z-50 flex items-center gap-2">
-                        <img src={raapLogo} alt="RaaP" className="h-6" />
-                        <span className="bg-[#003f87] text-white px-2 py-0.5 rounded text-xs font-bold">ASSISTANT</span>
-                    </header>
+            {
+                activeView === 'assistant' && (
+                    <div className="min-h-screen bg-white pb-14 overflow-hidden">
+                        <header className="border-b border-gray-200 bg-white p-3 sticky top-0 z-50 flex items-center gap-2">
+                            <img src={raapLogo} alt="RaaP" className="h-6" />
+                            <span className="bg-[#003f87] text-white px-2 py-0.5 rounded text-xs font-bold">ASSISTANT</span>
+                        </header>
 
-                    <main className="p-2 space-y-2">
-                        {/* Update Button - Compact */}
-                        <Button onClick={() => { handleUpdateEstimate(); setActiveView('estimator'); }} className="w-full bg-[#003f87] h-10 text-sm mb-1">
-                            Update Estimate
-                        </Button>
+                        <main className="p-2 space-y-2">
+                            {/* Update Button - Compact */}
+                            <Button onClick={() => { handleUpdateEstimate(); setActiveView('estimator'); }} className="w-full bg-[#003f87] h-10 text-sm mb-1">
+                                Update Estimate
+                            </Button>
 
-                        <div className="relative bg-gray-50 p-2 rounded-lg border border-gray-100">
-                            <Label className="text-[#003f87] font-semibold mb-1 block text-xs">Project Details</Label>
-                            <div className="mt-1 relative">
-                                <Textarea
-                                    value={chatTranscript}
-                                    onChange={(e) => setChatTranscript(e.target.value)}
-                                    placeholder="Tap mic to speak..."
-                                    className="h-20 pr-10 text-xs bg-white resize-none"
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`absolute bottom-1 right-1 h-8 w-8 ${isListening && voiceTarget === 'chat' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
-                                    onClick={() => toggleListening('chat')}
-                                >
-                                    <Mic className="h-4 w-4" />
-                                </Button>
+                            <div className="relative bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <Label className="text-[#003f87] font-semibold mb-1 block text-xs">Project Details</Label>
+                                <div className="mt-1 relative">
+                                    <Textarea
+                                        value={chatTranscript}
+                                        onChange={(e) => setChatTranscript(e.target.value)}
+                                        placeholder="Tap mic to speak..."
+                                        className="h-20 pr-10 text-xs bg-white resize-none"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={`absolute bottom-1 right-1 h-8 w-8 ${isListening && voiceTarget === 'chat' ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}
+                                        onClick={() => toggleListening('chat')}
+                                    >
+                                        <Mic className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                            <div className="space-y-0.5 col-span-1">
-                                <Label className="text-[10px] uppercase text-gray-400">Flag / Brand</Label>
-                                <Select value={chatData.brand} onValueChange={(v) => setChatData({ ...chatData, brand: v })}>
-                                    <SelectTrigger className="h-8 text-xs w-full">
-                                        <SelectValue placeholder="Select Brand" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Home2 Suites">Home2 Suites</SelectItem>
-                                        <SelectItem value="Tru by Hilton">Tru by Hilton</SelectItem>
-                                        <SelectItem value="Hampton Inn & Suites">Hampton</SelectItem>
-                                        <SelectItem value="LivSmart">LivSmart</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div className="space-y-0.5 col-span-1">
+                                    <Label className="text-[10px] uppercase text-gray-400">Flag / Brand</Label>
+                                    <Select value={chatData.brand} onValueChange={(v) => setChatData({ ...chatData, brand: v })}>
+                                        <SelectTrigger className="h-8 text-xs w-full">
+                                            <SelectValue placeholder="Select Brand" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Home2 Suites">Home2 Suites</SelectItem>
+                                            <SelectItem value="Tru by Hilton">Tru by Hilton</SelectItem>
+                                            <SelectItem value="Hampton Inn & Suites">Hampton</SelectItem>
+                                            <SelectItem value="LivSmart">LivSmart</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-0.5 col-span-1">
+                                    <Label className="text-[10px] uppercase text-gray-400">Location</Label>
+                                    <Input
+                                        value={chatData.location}
+                                        onChange={(e) => setChatData({ ...chatData, location: e.target.value })}
+                                        className="h-8 text-xs"
+                                        placeholder="City/Zip"
+                                    />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <Label className="text-[10px] uppercase text-gray-400">Floors</Label>
+                                    <Select value={chatData.floors.toString()} onValueChange={(v) => setChatData({ ...chatData, floors: v })}>
+                                        <SelectTrigger className="h-8 text-xs w-full">
+                                            <SelectValue placeholder="#" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="3">3</SelectItem>
+                                            <SelectItem value="4">4</SelectItem>
+                                            <SelectItem value="5">5</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-0.5">
+                                    <Label className="text-[10px] uppercase text-gray-400">Rooms</Label>
+                                    <Input
+                                        type="number"
+                                        value={chatData.rooms}
+                                        onChange={(e) => setChatData({ ...chatData, rooms: e.target.value })}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-0.5 col-span-1">
-                                <Label className="text-[10px] uppercase text-gray-400">Location</Label>
-                                <Input
-                                    value={chatData.location}
-                                    onChange={(e) => setChatData({ ...chatData, location: e.target.value })}
-                                    className="h-8 text-xs"
-                                    placeholder="City/Zip"
-                                />
-                            </div>
-                            <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase text-gray-400">Floors</Label>
-                                <Select value={chatData.floors.toString()} onValueChange={(v) => setChatData({ ...chatData, floors: v })}>
-                                    <SelectTrigger className="h-8 text-xs w-full">
-                                        <SelectValue placeholder="#" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="3">3</SelectItem>
-                                        <SelectItem value="4">4</SelectItem>
-                                        <SelectItem value="5">5</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-0.5">
-                                <Label className="text-[10px] uppercase text-gray-400">Rooms</Label>
-                                <Input
-                                    type="number"
-                                    value={chatData.rooms}
-                                    onChange={(e) => setChatData({ ...chatData, rooms: e.target.value })}
-                                    className="h-8 text-xs"
-                                />
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            )}
+                        </main>
+                    </div>
+                )
+            }
 
             {/* Sticky Footer for Mobile Navigation */}
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-1 z-50 flex justify-around items-end shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe">
@@ -958,26 +811,15 @@ export default function HiltonEstimator() {
                     </Button>
                 )}
 
-                {/* SLOT 2: Email or Estimator (if Email Active) */}
-                {activeView === 'email' ? (
-                    <Button
-                        variant="ghost"
-                        className="flex flex-col items-center gap-1 h-auto py-2 px-4 text-[#003f87] hover:bg-blue-50"
-                        onClick={() => setActiveView('estimator')}
-                    >
-                        <Calculator className="h-5 w-5" />
-                        <span className="text-[10px] font-medium leading-none">Estimator</span>
-                    </Button>
-                ) : (
-                    <Button
-                        variant="ghost"
-                        className="flex flex-col items-center gap-1 h-auto py-2 px-4 text-gray-500 hover:text-[#003f87] hover:bg-blue-50"
-                        onClick={() => setActiveView('email')}
-                    >
-                        <Mail className="h-5 w-5" />
-                        <span className="text-[10px] font-medium leading-none">Email</span>
-                    </Button>
-                )}
+                {/* SLOT 2: Email (Smart Share) */}
+                <Button variant="ghost" className="flex flex-col items-center gap-1 h-auto py-2 px-4 text-[#003f87] hover:bg-blue-50"
+                    onClick={handleMobileEmailShare}
+                >
+                    <Mail className="h-5 w-5" />
+                    <span className="text-[10px] font-medium leading-none">Email</span>
+                </Button>
+
+
 
                 {/* SLOT 3: Assistant or Estimator (if Assistant Active) */}
                 {activeView === 'assistant' ? (
