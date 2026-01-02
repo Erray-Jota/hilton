@@ -163,8 +163,10 @@ export const ScenarioCard = memo(({
 
             <div className="p-3 md:p-4 space-y-3 md:space-y-4">
                 {/* 2. Top Metrics Row - Conditional render */}
+                {/* 2. Top Metrics Row - Conditional render via CSS for responsiveness */}
+                {/* On mobile, we use the fixed header in parent page, so hide this internal one. Show on Desktop. */}
                 {!hideMetrics && (
-                    <div className="sticky top-14 z-40 bg-white -mx-3 px-3 py-2 lg:static lg:mx-0 lg:px-0 lg:py-0 border-b lg:border-none border-gray-100">
+                    <div className="hidden lg:block lg:static mb-3 border-b lg:border-none border-gray-100">
                         <div className="grid grid-cols-3 gap-2 md:gap-3">
                             {/* Total Cost - Dark Blue */}
                             <div className="bg-[#003f87] text-white p-2 md:p-3 rounded-lg shadow-sm min-h-[50px] md:min-h-[60px] transition-transform duration-200 hover:scale-[1.02]">

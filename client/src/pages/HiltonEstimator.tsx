@@ -705,7 +705,6 @@ export default function HiltonEstimator() {
                                 data={data1}
                                 onUpdate={u => setScenario1(p => ({ ...p, ...u }))}
                                 isMobile={true}
-                                hideMetrics={true}
                                 logoHeight="h-16 md:h-20"
                             />
                             <div className="hidden lg:block">

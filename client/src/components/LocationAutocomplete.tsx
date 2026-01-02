@@ -123,7 +123,18 @@ export function LocationAutocomplete({
     }, []);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setDisplayValue(e.target.value);
+        const newVal = e.target.value;
+        setDisplayValue(newVal);
+
+        // "Save As You Type" behavior
+        onLocationSelect({
+            zipCode: "",
+            city: "",
+            state: "",
+            lat: null,
+            lng: null,
+            formattedAddress: newVal
+        });
     };
 
     return (
