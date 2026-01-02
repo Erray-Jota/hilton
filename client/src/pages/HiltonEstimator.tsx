@@ -354,7 +354,7 @@ export default function HiltonEstimator() {
     };
 
     const generateCSV = async () => {
-        console.log("🔥 generateCSV called - SAVE PICKER VERSION");
+        // console.log("🔥 generateCSV called - SAVE PICKER VERSION");
 
         // Headers
         const headers = ["Inputs & Assumptions", "Scenario A", "Scenario B"];
@@ -400,7 +400,7 @@ export default function HiltonEstimator() {
                 const writable = await handle.createWritable();
                 await writable.write(csvContent);
                 await writable.close();
-                console.log("🔥 Saved via showSaveFilePicker");
+                // console.log("🔥 Saved via showSaveFilePicker");
                 return;
             } catch (err: any) {
                 if (err.name !== 'AbortError') {
@@ -436,7 +436,7 @@ export default function HiltonEstimator() {
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
             const pdfBlob = pdf.output('blob');
-            console.log("PDF Blob Size:", pdfBlob.size); // Debugging
+            // console.log("PDF Blob Size:", pdfBlob.size); // Debugging
 
             if (pdfBlob.size === 0) {
                 alert("Error: PDF generation failed (Empty File).");
@@ -493,11 +493,10 @@ export default function HiltonEstimator() {
                 const pdfBlob = pdf.output('blob');
                 await writable.write(pdfBlob);
                 await writable.close();
-                console.log("🔥 PDF saved via showSaveFilePicker");
                 return;
             } catch (err: any) {
                 if (err.name !== 'AbortError') {
-                    console.error("Save picker error:", err);
+                    // console.error("Save picker error:", err);
                 }
                 // User cancelled, don't fall back
                 return;
